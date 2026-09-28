@@ -1,24 +1,14 @@
 package toy.pki.kms.controller;
 
-import java.security.GeneralSecurityException;
-import java.util.List;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import toy.pki.kms.domain.algorithm.KeyAlgorithm;
 import toy.pki.kms.domain.algorithm.KeyGenerationProfile;
 import toy.pki.kms.domain.algorithm.SignatureAlgorithm;
@@ -28,6 +18,11 @@ import toy.pki.kms.domain.request.KeyGenerationRequest;
 import toy.pki.kms.repository.ManagedKeyRepository;
 import toy.pki.kms.service.KeyManagementService;
 
+import java.security.GeneralSecurityException;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
 @Slf4j
 @Controller
 @RequiredArgsConstructor
@@ -36,20 +31,6 @@ public class KmsController {
 
     private final KeyManagementService keyManagementService;
     private final ManagedKeyRepository managedKeyRepository;
-
-    @Data
-    public static class KeyQuery {
-
-        private KeyAlgorithm keyAlgorithm;
-        private KeyGenerationProfile keyGenerationProfile;
-        private KeyID keyId;
-
-        public Predicate<ManagedKey> toPredicate() {
-            return key -> (keyAlgorithm == null || key.getKeyGenerationProfile().getAlgorithm().equals(keyAlgorithm))
-                    && (keyGenerationProfile == null || key.getKeyGenerationProfile().equals(keyGenerationProfile))
-                    && (keyId == null || key.getId().equals(keyId));
-        }
-    }
 
     @ModelAttribute("algorithms")
     public KeyAlgorithm[] algorithms() {
@@ -92,8 +73,21 @@ public class KmsController {
 
         ManagedKey generated = keyManagementService.generate(request.keyGenerationProfile());
         managedKeyRepository.save(generated);
-        // redirectAttributes.addAttribute("keyId", generated.getId().value());
         redirectAttributes.addFlashAttribute("message", "Key generated successfully.");
         return "redirect:/pki/kms";
+    }
+
+    @Data
+    public static class KeyQuery {
+
+        private KeyAlgorithm keyAlgorithm;
+        private KeyGenerationProfile keyGenerationProfile;
+        private KeyID keyId;
+
+        public Predicate<ManagedKey> toPredicate() {
+            return key -> (keyAlgorithm == null || key.getKeyGenerationProfile().getAlgorithm().equals(keyAlgorithm))
+                    && (keyGenerationProfile == null || key.getKeyGenerationProfile().equals(keyGenerationProfile))
+                    && (keyId == null || key.getId().equals(keyId));
+        }
     }
 }

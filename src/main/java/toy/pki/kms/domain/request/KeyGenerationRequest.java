@@ -6,6 +6,6 @@ import toy.pki.kms.domain.algorithm.KeyGenerationProfile;
 public record KeyGenerationRequest(
         @Nonnull
         KeyGenerationProfile keyGenerationProfile
-        ) {
+) {
 
 }

@@ -1,12 +1,11 @@
 package toy.pki.kms.infrastructure.jca;
 
+import org.springframework.stereotype.Component;
+import toy.pki.kms.domain.algorithm.KeyAlgorithm;
+
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-
-import org.springframework.stereotype.Component;
-
-import toy.pki.kms.domain.algorithm.KeyAlgorithm;
 
 @Component
 public class KeyGeneratorRegistry {

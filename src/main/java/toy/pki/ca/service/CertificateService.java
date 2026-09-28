@@ -10,7 +10,7 @@ import java.security.Security;
 public class CertificateService {
 
     public CertificateService() {
-        Security.addProvider( new BouncyCastleProvider() );
+        Security.addProvider(new BouncyCastleProvider());
     }
 
     // TODO: Implement certificate issuance

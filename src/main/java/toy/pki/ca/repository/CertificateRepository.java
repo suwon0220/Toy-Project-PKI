@@ -26,7 +26,7 @@ public class CertificateRepository {
     public List<CertificateData> findAll() {
         return certificateStore.values().stream()
                 .filter(Objects::nonNull)
-                .map(obj -> (CertificateData) obj)
+                .map(obj -> obj)
                 .toList();
     }
 

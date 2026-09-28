@@ -10,9 +10,10 @@ import java.util.List;
 @Data
 @RequiredArgsConstructor
 public class CertificateProfile {
-    @NonNull private String name;
-    private String description;
     private final List<ExtensionProfile> extensions;
+    @NonNull
+    private String name;
+    private String description;
 
     public void addExtension(ExtensionProfile extensionProfile) {
         this.extensions.add(extensionProfile);
