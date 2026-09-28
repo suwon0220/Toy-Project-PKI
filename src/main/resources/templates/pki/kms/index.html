@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<!--/*
+  KmsController 현재 구현에 맞춘 화면.
+  GET  /pki/kms?keyAlgorithm=&keyGenerationProfile=&signKeyId=&deleteKeyId=   → pki/kms/index
+  POST /pki/kms                                  (키 생성 · 검증 실패 시 같은 뷰)
+  Model: keys(List<ManagedKey>), keyQuery(KeyQuery), algorithms(KeyAlgorithm[]),
+         profiles(KeyGenerationProfile[]), signatureAlgorithms(SignatureAlgorithm[]),
+         keyGenerationRequest(KeyGenerationRequest record)
+  선택(없어도 됨): signResult, flashSuccess, flashError
+
+  signKeyId · deleteKeyId 는 Model 에 없으므로 요청 파라미터(param)로 읽는다.
+  서명 · 삭제 · 공개키 요청 경로는 API 명세(/pki/kms/keys/{keyId}/...)를 따른다 — 컨트롤러 구현 필요.
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{pki/fragments/layout :: shell('KMS 키', ~{::main}, 'kms')}">
+<body>
+<main class="stack"
+      th:with="signKeyId=${param.signKeyId != null} ? ${param.signKeyId[0]} : null,
+               deleteKeyId=${param.deleteKeyId != null} ? ${param.deleteKeyId[0]} : null">
+
+  <div class="page-head">
+    <div class="crumbs">PKI / KMS 키</div>
+    <div class="page-title-row">
+      <h1 class="page-title">KMS 키</h1>
+    </div>
+  </div>
+
+  <!-- 키 목록 -->
+  <section class="card card-flush">
+    <div class="card-head">
+      <h2 class="card-title">키 목록 <span class="hint" th:text="|${#lists.size(keys)}개|">0개</span></h2>
+      <!--/* KeyQuery 필터 (GET) */-->
+      <form class="actions" th:action="@{/pki/kms}" th:object="${keyQuery}" method="get" role="search">
+        <label class="sr-only" for="keyAlgorithm">알고리즘</label>
+        <select class="f w-140" th:field="*{keyAlgorithm}" style="height: 36px">
+          <option value="">알고리즘 전체</option>
+          <option th:each="a : ${algorithms}" th:value="${a}" th:text="${a}">EC</option>
+        </select>
+        <label class="sr-only" for="keyGenerationProfile">프로파일</label>
+        <select class="f w-150" th:field="*{keyGenerationProfile}" style="height: 36px">
+          <option value="">프로파일 전체</option>
+          <option th:each="p : ${profiles}" th:value="${p}" th:text="${p.algorithm.name() == 'EC'} ? |EC ${p.displayName}| : ${p.displayName}">EC P-256</option>
+        </select>
+        <button type="submit" class="btn btn-outline" style="height: 36px">필터</button>
+      </form>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+        <tr><th>별칭 · 키 ID</th><th>알고리즘</th><th>생성일</th><th>관리</th></tr>
+        </thead>
+        <tbody>
+        <tr th:each="k : ${keys}"
+            th:with="kid=${k.id.value().toString()}"
+            th:classappend="${kid == deleteKeyId} ? 'is-danger' : (${kid == signKeyId} ? 'is-selected')">
+          <td>
+            <div class="primary" th:text="${k.alias} ?: '(별칭 없음)'">tls-issuing-ca</div>
+            <div class="secondary" th:text="${kid}">7d1e2c4a-…</div>
+          </td>
+          <td class="num" th:text="${k.keyGenerationProfile.algorithm.name() == 'EC'} ? |EC ${k.keyGenerationProfile.displayName}| : ${k.keyGenerationProfile.displayName}">EC P-384</td>
+          <td class="num" th:text="${#dates.format(k.createdAt, 'yyyy-MM-dd HH:mm')}">2026-03-02 10:00</td>
+          <td>
+            <div class="row-actions">
+              <a class="act" th:href="@{/pki/kms/keys/{id}/public-key(id=${kid})}">공개키</a>
+              <a class="act act-accent" th:href="@{/pki/kms(signKeyId=${kid})} + '#sign'">서명</a>
+              <a class="act act-danger" th:href="@{/pki/kms(deleteKeyId=${kid})} + '#delete'">삭제</a>
+            </div>
+          </td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(keys)}">
+          <td class="empty" colspan="4">키가 없습니다. 아래에서 키를 만드세요.</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 삭제 확인 패널: ?deleteKeyId= 가 목록의 키와 일치할 때 -->
+  <th:block th:each="k : ${keys}" th:if="${deleteKeyId != null and k.id.value().toString() == deleteKeyId}">
+    <form id="delete" class="card card-danger delete-panel"
+          th:action="@{/pki/kms/keys/{id}/delete(id=${deleteKeyId})}" method="post">
+      <div class="grow stack" style="gap: 6px">
+        <div class="delete-title" th:text="|키 삭제: ${k.alias ?: deleteKeyId}|">키 삭제: v2g-subca</div>
+        <div class="hint">개인키가 즉시 파기되며 되돌릴 수 없습니다. 이 키로 서명한 인증서는 공개키로만 검증할 수 있습니다.</div>
+      </div>
+      <div class="field field-sm w-260">
+        <label class="lbl" for="confirmAlias">확인: 별칭 입력</label>
+        <input class="f" type="text" id="confirmAlias" name="confirmAlias"
+               th:placeholder="${k.alias}" autocomplete="off" spellcheck="false" required>
+      </div>
+      <a class="btn btn-outline" th:href="@{/pki/kms}">취소</a>
+      <button type="submit" class="btn btn-danger">삭제</button>
+    </form>
+  </th:block>
+
+  <div class="kms-forms">
+    <!-- 키 생성: KeyGenerationRequest 는 record 라 th:field(게터 필요) 대신 name/selected 로 바인딩 -->
+    <form class="card" style="padding: 22px; gap: 14px" th:action="@{/pki/kms}" method="post">
+      <h2 class="card-title">키 생성</h2>
+      <div class="alert alert-err" role="alert" th:if="${#fields.hasErrors('keyGenerationRequest.*')}">
+        <ul><li th:each="e : ${#fields.errors('keyGenerationRequest.*')}" th:text="${e}">오류</li></ul>
+      </div>
+      <div class="field field-sm">
+        <label class="lbl" for="keyGenerationProfile-new">키 프로파일 <span class="req" aria-hidden="true">*</span></label>
+        <select class="f" id="keyGenerationProfile-new" name="keyGenerationProfile" required>
+          <option value="">선택하세요</option>
+          <option th:each="p : ${profiles}" th:value="${p}"
+                  th:selected="${keyGenerationRequest != null and keyGenerationRequest.keyGenerationProfile() == p}"
+                  th:text="${p.algorithm.name() == 'EC'} ? |EC ${p.displayName}| : ${p.displayName}">EC P-256</option>
+        </select>
+      </div>
+      <div class="hint">개인키는 내장 KMS 키 저장소 안에서만 만들어지고 사용됩니다.</div>
+      <div><button type="submit" class="btn btn-primary">키 생성</button></div>
+    </form>
+
+    <!-- 서명: ?signKeyId= 로 키를 고른다 -->
+    <section id="sign" class="card" style="padding: 22px; gap: 14px">
+      <h2 class="card-title">서명</h2>
+      <p class="hint" th:if="${signKeyId == null}">
+        키 목록에서 <strong>서명</strong>을 눌러 키를 고르세요.
+      </p>
+
+      <th:block th:each="k : ${keys}" th:if="${signKeyId != null and k.id.value().toString() == signKeyId}">
+        <form class="stack" style="gap: 14px" th:action="@{/pki/kms/keys/{id}/sign(id=${signKeyId})}" method="post">
+          <input type="hidden" name="keyId" th:value="${signKeyId}">
+          <div class="sign-grid">
+            <div class="field field-sm">
+              <label class="lbl" for="signKeyAlias">키</label>
+              <input class="f" type="text" id="signKeyAlias" readonly
+                     th:value="|${k.alias ?: '(별칭 없음)'} · ${k.keyGenerationProfile.displayName}|">
+              <div class="hint">다른 키는 목록의 <b>서명</b>으로 고릅니다.</div>
+            </div>
+            <div class="field field-sm">
+              <label class="lbl" for="signatureAlgorithm">서명 알고리즘</label>
+              <select class="f mono" style="font-size: 12.5px" id="signatureAlgorithm" name="signatureAlgorithm" required>
+                <option th:each="sa : ${signatureAlgorithms}" th:value="${sa}" th:text="${sa.jcaName}"
+                        th:selected="${(sa.name() == 'ECDSA' and k.keyGenerationProfile.algorithm.name() == 'EC') or (sa.name() == 'RSA' and k.keyGenerationProfile.algorithm.name() == 'RSA')}">ECDSA</option>
+              </select>
+            </div>
+            <div class="field field-sm">
+              <label class="lbl" for="encoding">입력 형식</label>
+              <select class="f" id="encoding" name="encoding">
+                <option value="TEXT">TEXT</option>
+                <option value="BASE64">BASE64</option>
+                <option value="HEX">HEX</option>
+              </select>
+            </div>
+          </div>
+          <div class="field field-sm">
+            <label class="lbl" for="data">서명할 데이터</label>
+            <textarea class="f" rows="3" id="data" name="data" spellcheck="false" placeholder="hello pki" required></textarea>
+          </div>
+          <div class="actions">
+            <button type="submit" class="btn btn-dark">서명</button>
+            <span class="hint">결과는 이 화면에 바로 표시됩니다 (저장하지 않음)</span>
+          </div>
+        </form>
+      </th:block>
+
+      <div class="result" th:if="${signResult != null}" role="status">
+        <dl class="dl" style="grid-template-columns: 110px minmax(0, 1fr)">
+          <dt>키</dt><dd th:text="${signResult.alias}">api-tls-server</dd>
+          <dt>알고리즘</dt><dd class="mono" th:text="${signResult.signatureAlgorithm}">SHA256withECDSA</dd>
+          <dt>데이터 SHA-256</dt><dd class="mono break" th:text="${signResult.dataSha256Hex}">…</dd>
+          <dt>서명 (Base64)</dt><dd class="mono break" th:text="${signResult.signatureBase64}">…</dd>
+        </dl>
+      </div>
+    </section>
+  </div>
+</main>
+</body>
+</html>
