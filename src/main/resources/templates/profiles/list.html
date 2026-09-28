@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(~{::title}, ~{::main})}">
+<head><title>프로파일 · Toy PKI</title></head>
+<body>
+<main class="content">
+  <div class="page-head">
+    <div>
+      <h1>인증서 프로파일</h1>
+      <p>발급될 인증서의 구조와 제약을 정의합니다. 프로파일은 버전 관리되며, 발급된 인증서는 사용한 버전을 기록합니다.</p>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary" type="button" disabled title="정책 관리 기능 구현 후 활성화"><svg th:replace="~{fragments/components :: icon('plus')}"></svg>새 프로파일</button>
+    </div>
+  </div>
+
+  <div class="grid grid-2">
+    <article class="card profile-card" th:each="p : ${profiles}">
+      <header class="card-header">
+        <div>
+          <div class="row"><h2 th:text="${p.name}">TLS Server</h2><span class="tag" th:text="|v${p.version}|">v3</span>
+            <span class="tag tag-accent" th:if="${p.ca}">CA</span></div>
+          <p th:text="${p.description}">설명</p>
+        </div>
+      </header>
+      <div class="card-body">
+        <dl class="dl">
+          <dt>키 알고리즘</dt><dd th:text="${p.keyAlgorithm}">EC P-256</dd>
+          <dt>유효기간</dt><dd th:text="${p.validity}">397일</dd>
+          <dt>Key Usage</dt><dd class="row"><span class="tag tag-primary" th:each="u : ${p.keyUsage}" th:text="${u}">digitalSignature</span></dd>
+          <dt>EKU</dt><dd class="row">
+            <span class="tag tag-tertiary" th:each="u : ${p.extendedKeyUsage}" th:text="${u}">serverAuth</span>
+            <span class="subtle" th:if="${#lists.isEmpty(p.extendedKeyUsage)}">없음</span></dd>
+        </dl>
+      </div>
+      <footer class="foot">
+        <span th:text="|발급 CA · ${p.issuer}|">발급 CA</span>
+        <span th:text="|${p.issuedCount}건 발급|">128건 발급</span>
+      </footer>
+    </article>
+  </div>
+</main>
+</body>
+</html>

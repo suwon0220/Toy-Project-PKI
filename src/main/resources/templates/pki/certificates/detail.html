@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<!--/*
+  GET  /pki/certificates/{serial}                → pki/certificates/detail
+  POST /pki/certificates/{serial}/revoke         → 검증 실패 시 같은 뷰
+  Model: cert(CertificateDetail), revokeForm, revocationReasons, canRevoke
+         ocspCheck(OcspCheckResult, flash), p12Token(String, flash)
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{pki/fragments/layout :: shell(${cert.subjectCn}, ~{::main}, 'certificates')}">
+<body>
+<main class="stack"
+      th:with="st=${cert.status != null} ? ${cert.status.name()} : '',
+               serialLen=${#strings.length(cert.serial)},
+               last6=${#strings.substring(cert.serial, serialLen > 6 ? serialLen - 6 : 0)}">
+
+  <div class="page-head">
+    <div class="crumbs">PKI / <a th:href="@{/pki/certificates}">인증서</a> / 상세</div>
+    <div class="page-title-row">
+      <div class="title-with-badge">
+        <h1 class="page-title" th:text="${cert.subjectCn}">api.example.com</h1>
+        <span th:replace="~{pki/fragments/ui :: certStatus(${cert.status})}"></span>
+      </div>
+      <a class="btn btn-outline" th:href="@{/pki/certificates}">목록으로</a>
+    </div>
+  </div>
+
+  <!--/* SERVER_GENERATED 발급 직후 1회용 PKCS#12 다운로드 (토큰은 POST hidden으로만 전달) */-->
+  <form th:if="${p12Token}" class="alert alert-warn" th:action="@{/pki/certificates/pkcs12}" method="post"
+        style="align-items: center; justify-content: space-between; flex-wrap: wrap">
+    <input type="hidden" name="token" th:value="${p12Token}">
+    <div>
+      <strong>PKCS#12 파일을 지금 내려받으세요.</strong>
+      한 번만 받을 수 있고 5분 뒤 만료됩니다. 서버는 개인키를 보관하지 않습니다.
+    </div>
+    <button type="submit" class="btn btn-dark">PKCS#12 다운로드</button>
+  </form>
+
+  <div class="with-aside-wide">
+    <!-- 좌측: 인증서 정보 -->
+    <div class="stack">
+      <section class="card">
+        <h2 class="card-title">인증서</h2>
+        <dl class="dl dl-wide">
+          <dt>시리얼</dt><dd class="mono" th:text="${cert.serial}">1b77e04a9c3d12</dd>
+          <dt>Subject DN</dt><dd class="mono" th:text="${cert.subjectDn}">CN=api.example.com, O=…, C=KR</dd>
+          <dt>Issuer DN</dt><dd class="mono" th:text="${cert.issuerDn}">CN=Issuing CA — TLS</dd>
+          <dt>발급 CA</dt><dd th:text="${cert.caName}">Issuing CA — TLS</dd>
+          <dt>프로파일</dt>
+          <dd>
+            <a th:href="@{/pki/profiles(id=${cert.profileId})}" th:text="${cert.profileName}">TLS 서버</a>
+            <span class="muted" th:text="|· v${cert.profileVersion}|">· v3</span>
+          </dd>
+          <dt>유효기간</dt>
+          <dd class="mono">
+            <span th:text="${#temporals.format(cert.notBefore, 'yyyy-MM-dd HH:mm')}">2025-12-01 09:00</span>
+            →
+            <span th:text="${#temporals.format(cert.notAfter, 'yyyy-MM-dd HH:mm')}">2027-01-02 09:00</span>
+          </dd>
+          <th:block th:if="${st == 'VALID' or st == 'ON_HOLD'}">
+            <dt>남은 기간</dt><dd th:text="|${cert.daysLeft}일|">95일</dd>
+          </th:block>
+          <dt>키</dt><dd th:text="${#messages.msgOrNull('enum.KeyAlgorithm.' + cert.keyAlgorithm) ?: cert.keyAlgorithm}">EC P-384</dd>
+          <dt>키 소스</dt><dd th:insert="~{pki/fragments/ui :: label('KeySource', ${cert.keySource})}">CSR</dd>
+          <dt>SHA-256</dt><dd class="mono break" th:text="${cert.sha256Fingerprint}">AB:CD:…</dd>
+        </dl>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">확장</h2>
+        <dl class="dl dl-wide">
+          <dt>SAN</dt>
+          <dd>
+            <ul th:unless="${#lists.isEmpty(cert.sans)}"><li th:each="s : ${cert.sans}"><span class="tag" th:text="${s}">DNS:api.example.com</span></li></ul>
+            <span class="muted" th:if="${#lists.isEmpty(cert.sans)}">없음</span>
+          </dd>
+          <dt>Key Usage</dt>
+          <dd>
+            <ul th:unless="${#lists.isEmpty(cert.keyUsages)}"><li th:each="k : ${cert.keyUsages}"><span class="tag" th:text="${k}">digitalSignature</span></li></ul>
+            <span class="muted" th:if="${#lists.isEmpty(cert.keyUsages)}">없음</span>
+          </dd>
+          <dt>Extended KU</dt>
+          <dd>
+            <ul th:unless="${#lists.isEmpty(cert.extKeyUsages)}"><li th:each="e : ${cert.extKeyUsages}"><span class="tag" th:text="${e}">serverAuth</span></li></ul>
+            <span class="muted" th:if="${#lists.isEmpty(cert.extKeyUsages)}">없음</span>
+          </dd>
+        </dl>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">다운로드</h2>
+        <div class="links">
+          <a th:href="@{/pki/certificates/{serial}/download(serial=${cert.serial}, format='PEM')}">PEM</a>
+          <a th:href="@{/pki/certificates/{serial}/download(serial=${cert.serial}, format='DER')}">DER</a>
+          <a th:href="@{/pki/certificates/{serial}/download(serial=${cert.serial}, format='CHAIN_PEM')}">체인 PEM</a>
+          <a th:href="@{/pki/certificates/{serial}/download(serial=${cert.serial}, format='PKCS7')}">PKCS#7</a>
+        </div>
+      </section>
+    </div>
+
+    <!-- 우측: 상태 조회 · 폐지 -->
+    <div class="stack">
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-sub">상태 조회 (OCSP)</h2>
+          <form th:action="@{/pki/certificates/{serial}/status-check(serial=${cert.serial})}" method="post">
+            <button type="submit" class="btn btn-accent-outline" style="height: 36px; padding: 0 14px; font-size: 13px">OCSP로 조회</button>
+          </form>
+        </div>
+        <div class="hint" th:unless="${ocspCheck}">OCSP 응답기에 실제 요청을 보내 응답 서명을 검증하고 DB 상태와 비교합니다.</div>
+        <th:block th:if="${ocspCheck}">
+          <div class="alert alert-err" role="alert" th:if="${ocspCheck.dbMismatch}">
+            OCSP 응답과 DB 상태가 다릅니다. 응답기가 실시간 조회라면 나올 수 없는 결과이므로 버그 신호입니다.
+          </div>
+          <div class="result">
+            <dl class="dl">
+              <dt>certStatus</dt>
+              <dd class="mono" style="font-weight: 600"
+                  th:style="${ocspCheck.certStatus != null and ocspCheck.certStatus.name() == 'REVOKED'} ? 'font-weight: 600; color: var(--danger-ink)' : (${ocspCheck.certStatus != null and ocspCheck.certStatus.name() == 'GOOD'} ? 'font-weight: 600; color: var(--accent-ink)' : 'font-weight: 600')"
+                  th:text="${ocspCheck.certStatus}">GOOD</dd>
+              <th:block th:if="${ocspCheck.revocationTime}">
+                <dt>폐지 시각</dt><dd class="mono" th:text="${#temporals.format(ocspCheck.revocationTime, 'yyyy-MM-dd HH:mm:ss')}">2026-09-28 13:47:05</dd>
+                <dt>사유</dt><dd th:insert="~{pki/fragments/ui :: label('RevocationReason', ${ocspCheck.revocationReason})}">keyCompromise (1)</dd>
+              </th:block>
+              <dt>producedAt</dt><dd class="mono" th:text="${#temporals.format(ocspCheck.producedAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-28 14:02:11</dd>
+              <dt>thisUpdate</dt><dd class="mono" th:text="${#temporals.format(ocspCheck.thisUpdate, 'yyyy-MM-dd HH:mm:ss')}">2026-09-28 14:02:11</dd>
+              <dt>nextUpdate</dt><dd class="mono" th:text="${ocspCheck.nextUpdate != null} ? ${#temporals.format(ocspCheck.nextUpdate, 'yyyy-MM-dd HH:mm:ss')} : '—'">2026-09-28 15:02:11</dd>
+              <dt>응답자</dt><dd class="mono break" th:text="${ocspCheck.responderId}">byKey …</dd>
+              <dt>응답 서명</dt><dd th:text="${ocspCheck.signatureValid} ? '검증됨' : '검증 실패'"
+                                  th:style="${ocspCheck.signatureValid} ? '' : 'color: var(--danger); font-weight: 600'">검증됨</dd>
+              <dt>DB 비교</dt><dd th:text="${ocspCheck.dbMismatch} ? '불일치' : '일치'"
+                                 th:style="${ocspCheck.dbMismatch} ? 'color: var(--danger); font-weight: 600' : ''">일치</dd>
+            </dl>
+          </div>
+        </th:block>
+      </section>
+
+      <!-- 폐지 폼: VALID · ON_HOLD -->
+      <section class="card" th:if="${canRevoke}">
+        <h2 class="card-sub">폐지</h2>
+        <form class="stack" style="gap: 12px" th:action="@{/pki/certificates/{serial}/revoke(serial=${cert.serial})}" th:object="${revokeForm}" method="post">
+          <div th:replace="~{pki/fragments/ui :: globalErrors}"></div>
+          <div class="field field-sm">
+            <label class="lbl" for="reason">사유 <span class="req" aria-hidden="true">*</span></label>
+            <select class="f" th:field="*{reason}" th:errorclass="is-invalid" required>
+              <option value="">선택하세요</option>
+              <option th:each="r : ${revocationReasons}" th:value="${r}"
+                      th:text="${#messages.msgOrNull('enum.RevocationReason.' + r) ?: r}">keyCompromise (1)</option>
+            </select>
+            <div class="err" th:if="${#fields.hasErrors('reason')}" th:errors="*{reason}">사유를 선택하세요.</div>
+            <div class="hint" th:unless="${#fields.hasErrors('reason')}">certificateHold만 보류(되돌릴 수 있음)이고, 나머지 사유는 되돌릴 수 없습니다.</div>
+          </div>
+          <div class="field field-sm">
+            <label class="lbl" for="invalidityDate">키 손상 추정 시각 (선택)</label>
+            <input class="f" type="datetime-local" th:field="*{invalidityDate}" th:errorclass="is-invalid">
+            <div class="err" th:if="${#fields.hasErrors('invalidityDate')}" th:errors="*{invalidityDate}">시각 오류</div>
+          </div>
+          <div class="field field-sm">
+            <label class="lbl" for="comment">메모</label>
+            <input class="f" type="text" maxlength="500" th:field="*{comment}" th:errorclass="is-invalid" placeholder="감사로그에 기록됩니다">
+            <div class="err" th:if="${#fields.hasErrors('comment')}" th:errors="*{comment}">메모 오류</div>
+          </div>
+          <div class="field field-sm">
+            <label class="lbl" for="confirmSerial">확인: 시리얼 끝 6자리 <span class="mono" th:text="${last6}">3d12ab</span></label>
+            <input class="f mono" type="text" maxlength="6" autocomplete="off" spellcheck="false"
+                   th:field="*{confirmSerial}" th:errorclass="is-invalid" required>
+            <div class="err" th:if="${#fields.hasErrors('confirmSerial')}" th:errors="*{confirmSerial}">시리얼이 일치하지 않습니다.</div>
+          </div>
+          <label class="ck"><input type="checkbox" th:field="*{publishCrlNow}">CRL 즉시 재발행</label>
+          <button type="submit" class="btn btn-danger btn-md btn-block">인증서 폐지</button>
+        </form>
+
+        <form class="divided" th:if="${st == 'ON_HOLD'}"
+              th:action="@{/pki/certificates/{serial}/release-hold(serial=${cert.serial})}" method="post">
+          <h3 class="card-sub">보류 해제</h3>
+          <div class="field field-sm">
+            <label class="lbl" for="releaseComment">메모</label>
+            <input class="f" type="text" id="releaseComment" name="comment" maxlength="500" placeholder="감사로그에 기록됩니다">
+          </div>
+          <button type="submit" class="btn btn-outline btn-md btn-block">보류 해제 (VALID로 복귀)</button>
+        </form>
+      </section>
+
+      <section class="card" th:if="${st == 'REVOKED'}">
+        <h2 class="card-sub" style="color: var(--danger-ink)">폐지됨</h2>
+        <dl class="dl">
+          <dt>폐지 시각</dt><dd class="mono" th:text="${#temporals.format(cert.revokedAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-28 13:47:05</dd>
+          <dt>사유</dt><dd th:insert="~{pki/fragments/ui :: label('RevocationReason', ${cert.revocationReason})}">keyCompromise (1)</dd>
+          <th:block th:if="${cert.invalidityDate}">
+            <dt>손상 추정</dt><dd class="mono" th:text="${#temporals.format(cert.invalidityDate, 'yyyy-MM-dd HH:mm')}">2026-09-27 22:00</dd>
+          </th:block>
+        </dl>
+      </section>
+
+      <section class="card" th:if="${st == 'EXPIRED'}">
+        <p class="hint" style="font-size: 13px">만료된 인증서입니다. 폐지할 수 없으며 CRL에서도 제외됩니다.</p>
+      </section>
+    </div>
+  </div>
+</main>
+</body>
+</html>

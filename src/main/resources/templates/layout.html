@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<!--/* 공통 레이아웃. 페이지는 <html th:replace="~{layout :: layout(~{::title}, ~{::main})}"> 로 사용 */-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:fragment="layout(title, content)"
+      th:attr="data-mode=${theme.mode().key},data-palette=${theme.palette().key},data-harmony=${theme.harmony().key}"
+      th:style="${theme.cssVars()}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:replace="${title}">Toy PKI</title>
+  <link rel="stylesheet" th:href="@{/css/theme.css}">
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+  <script th:src="@{/js/theme.js}" defer></script>
+</head>
+<body>
+<svg th:replace="~{fragments/icons :: sprite}"></svg>
+
+<div class="app">
+  <aside class="sidebar" aria-label="주 메뉴">
+    <a class="brand" th:href="@{/}">
+      <span class="brand-mark"><svg th:replace="~{fragments/components :: icon('shield')}"></svg></span>
+      <span>Toy PKI<small>Certificate Console</small></span>
+    </a>
+
+    <nav class="nav">
+      <a class="nav-item" th:href="@{/}" th:classappend="${currentPath == '/'} ? 'is-active'"
+         th:attr="aria-current=${currentPath == '/'} ? 'page'">
+        <svg th:replace="~{fragments/components :: icon('grid')}"></svg>대시보드
+      </a>
+      <div class="nav-label">인증서</div>
+      <a class="nav-item" th:href="@{/certificates}"
+         th:with="on=${#strings.startsWith(currentPath, '/certificates') and currentPath != '/certificates/issue'}"
+         th:classappend="${on} ? 'is-active'" th:attr="aria-current=${on} ? 'page'">
+        <svg th:replace="~{fragments/components :: icon('cert')}"></svg>인증서 목록
+      </a>
+      <a class="nav-item" th:href="@{/certificates/issue}"
+         th:classappend="${currentPath == '/certificates/issue'} ? 'is-active'"
+         th:attr="aria-current=${currentPath == '/certificates/issue'} ? 'page'">
+        <svg th:replace="~{fragments/components :: icon('plus')}"></svg>인증서 발급
+      </a>
+      <a class="nav-item" th:href="@{/profiles}"
+         th:classappend="${#strings.startsWith(currentPath, '/profiles')} ? 'is-active'"
+         th:attr="aria-current=${#strings.startsWith(currentPath, '/profiles')} ? 'page'">
+        <svg th:replace="~{fragments/components :: icon('sliders')}"></svg>프로파일
+      </a>
+      <div class="nav-label">운영</div>
+      <span class="nav-item" aria-disabled="true"><svg th:replace="~{fragments/components :: icon('tree')}"></svg>CA 관리<span class="tag">예정</span></span>
+      <span class="nav-item" aria-disabled="true"><svg th:replace="~{fragments/components :: icon('ban')}"></svg>CRL · OCSP<span class="tag">예정</span></span>
+      <span class="nav-item" aria-disabled="true"><svg th:replace="~{fragments/components :: icon('check-circle')}"></svg>인증서 검증<span class="tag">예정</span></span>
+    </nav>
+
+    <div class="sidebar-foot nav">
+      <a class="nav-item" th:href="@{/settings/appearance}"
+         th:classappend="${#strings.startsWith(currentPath, '/settings')} ? 'is-active'"
+         th:attr="aria-current=${#strings.startsWith(currentPath, '/settings')} ? 'page'">
+        <svg th:replace="~{fragments/components :: icon('palette')}"></svg>화면 테마
+      </a>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <header class="topbar">
+      <form class="topbar-search" role="search" th:action="@{/certificates}" method="get">
+        <svg th:replace="~{fragments/components :: icon('search')}"></svg>
+        <label class="sr-only" for="global-q">인증서 검색</label>
+        <input id="global-q" class="input" type="search" name="q" placeholder="CN 또는 일련번호로 검색">
+      </form>
+      <div class="topbar-actions">
+        <!-- 모드 토글: system → light → dark 순환. JS가 없으면 설정 화면으로 이동 -->
+        <a class="btn btn-ghost btn-icon" th:href="@{/settings/appearance}" data-mode-toggle
+           th:attr="title=|화면 모드: ${theme.mode().label}|,aria-label=|화면 모드: ${theme.mode().label}. 눌러서 변경|">
+          <svg class="icon" aria-hidden="true"><use th:href="${theme.mode().key == 'light' ? '#i-sun' : (theme.mode().key == 'dark' ? '#i-moon' : '#i-monitor')}"></use></svg>
+        </a>
+        <span class="avatar" title="admin">AD</span>
+      </div>
+    </header>
+
+    <main th:replace="${content}"></main>
+  </div>
+</div>
+</body>
+</html>

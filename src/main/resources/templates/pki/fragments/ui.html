@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<!--/* PKI 콘솔 공용 조각. 라벨은 messages.properties 의 enum.* 키, 없으면 enum 이름을 그대로 출력한다. */-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/* enum 라벨: ~{pki/fragments/ui :: label('CertStatus', ${c.status})} */-->
+<th:block th:fragment="label(type, value)"
+          th:text="${value == null} ? '—' : (${#messages.msgOrNull('enum.' + type + '.' + value)} ?: ${value})">VALID</th:block>
+
+<!--/* 전역 오류 배너 (th:object 안에서만 사용) */-->
+<div th:fragment="globalErrors" th:if="${#fields.hasGlobalErrors()}" class="alert alert-err" role="alert">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+  <ul>
+    <li th:each="e : ${#fields.globalErrors()}" th:text="${e}">오류</li>
+  </ul>
+</div>
+
+<!--/* 인증서 상태 배지: VALID | ON_HOLD | REVOKED | EXPIRED */-->
+<span th:fragment="certStatus(status)" class="badge"
+      th:classappend="${status == null} ? 'b-neutral' : (${status.name() == 'VALID'} ? 'b-ok' : (${status.name() == 'ON_HOLD'} ? 'b-warn' : (${status.name() == 'REVOKED'} ? 'b-danger' : 'b-neutral')))"
+      th:insert="~{pki/fragments/ui :: label('CertStatus', ${status})}">유효</span>
+
+<!--/* 프로파일 상태 배지: ACTIVE | DRAFT | RETIRED */-->
+<span th:fragment="profileStatus(status)" class="badge"
+      th:classappend="${status == null} ? 'b-neutral' : (${status.name() == 'ACTIVE'} ? 'b-ok' : (${status.name() == 'DRAFT'} ? 'b-warn' : 'b-neutral'))"
+      th:text="${status}">ACTIVE</span>
+
+<!--/* OCSP 결과 배지: GOOD | REVOKED | UNKNOWN | ERROR */-->
+<span th:fragment="ocspResult(result)" class="badge"
+      th:classappend="${result == null} ? 'b-neutral' : (${result.name() == 'GOOD'} ? 'b-ok' : (${result.name() == 'REVOKED'} ? 'b-danger' : (${result.name() == 'ERROR'} ? 'b-warn' : 'b-neutral')))"
+      th:insert="~{pki/fragments/ui :: label('OcspLogResult', ${result})}">GOOD</span>
+
+<!--/*
+  인증서 목록 정렬 헤더. 같은 필드를 다시 누르면 방향 반전, 다른 필드는 asc부터.
+  정렬이 바뀌면 page는 0 (파라미터 생략), 필터는 유지.
+  Model: sortField, sortDir, filter
+*/-->
+<th th:fragment="certSortHead(field, text)"
+    th:with="on=${sortField == field}, nextDir=${sortField == field and sortDir == 'asc'} ? 'desc' : 'asc'"
+    th:attr="aria-sort=${on} ? (${sortDir == 'desc'} ? 'descending' : 'ascending') : 'none'">
+  <a class="sort" th:classappend="${on} ? 'is-on'"
+     th:href="@{/pki/certificates(sort=${field + ',' + nextDir}, q=${filter.q}, status=${filter.status}, caId=${filter.caId}, expiringWithinDays=${filter.expiringWithinDays})}">
+    <span th:text="${text}">주체 CN</span>
+    <span class="arrow" aria-hidden="true" th:text="${on} ? (${sortDir == 'desc'} ? '▼' : '▲') : '↕'">↕</span>
+  </a>
+</th>
+
+</body>
+</html>

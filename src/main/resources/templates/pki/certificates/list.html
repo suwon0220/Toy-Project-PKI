@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<!--/*
+  GET /pki/certificates?q=&status=&caId=&expiringWithinDays=&page=&size=&sort=  → pki/certificates/list
+  Model: page(Page<CertificateSummary>), sortField, sortDir, filter(CertificateFilter), caList, statuses
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{pki/fragments/layout :: shell('인증서 상태 관리', ~{::main}, 'certificates')}">
+<body>
+<main class="stack" th:with="sortParam=${sortField + ',' + sortDir}">
+
+  <div class="page-head">
+    <div class="crumbs">PKI / 인증서 / 상태 관리</div>
+    <div class="page-title-row">
+      <h1 class="page-title">인증서 상태 관리</h1>
+      <a class="btn btn-primary" th:href="@{/pki/certificates/new(caId=${filter.caId})}">새 인증서 발급</a>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <form th:action="@{/pki/certificates}" th:object="${filter}" method="get" role="search">
+      <input type="hidden" name="sort" th:value="${sortParam}">
+      <div class="field field-sm grow">
+        <label class="lbl" for="q">검색</label>
+        <input class="f" type="search" th:field="*{q}" maxlength="128" placeholder="시리얼(hex) 또는 CN">
+      </div>
+      <div class="field field-sm w-150">
+        <label class="lbl" for="status">상태</label>
+        <select class="f" th:field="*{status}">
+          <option value="">전체</option>
+          <option th:each="s : ${statuses}" th:value="${s}" th:text="${#messages.msgOrNull('enum.CertStatus.' + s) ?: s}">VALID</option>
+        </select>
+      </div>
+      <div class="field field-sm w-210">
+        <label class="lbl" for="caId">발급 CA</label>
+        <select class="f" th:field="*{caId}">
+          <option value="">전체</option>
+          <option th:each="ca : ${caList}" th:value="${ca.caId}" th:text="${ca.name}">Issuing CA — TLS</option>
+        </select>
+      </div>
+      <div class="field field-sm w-150">
+        <label class="lbl" for="expiringWithinDays">만료 임박</label>
+        <select class="f" th:field="*{expiringWithinDays}">
+          <option value="">전체</option>
+          <option value="30">30일 이내</option>
+          <option value="90">90일 이내</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-dark">조회</button>
+    </form>
+
+    <!--/* CRL 즉시 발행: 발급 CA로 조회한 상태에서만 대상이 정해진다 */-->
+    <form th:if="${filter.caId != null and !#strings.isEmpty(filter.caId)}"
+          th:action="@{/pki/cas/{caId}/crl(caId=${filter.caId})}" method="post">
+      <button type="submit" class="btn btn-outline">CRL 즉시 발행</button>
+    </form>
+    <button th:unless="${filter.caId != null and !#strings.isEmpty(filter.caId)}" type="button" class="btn btn-outline" disabled
+            title="발급 CA를 선택해 조회하면 해당 CA의 CRL을 발행할 수 있습니다">CRL 즉시 발행</button>
+  </div>
+
+  <section class="card card-flush">
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+        <tr>
+          <th th:replace="~{pki/fragments/ui :: certSortHead('subjectCn', '주체 CN · 시리얼')}"></th>
+          <th th:replace="~{pki/fragments/ui :: certSortHead('profileName', '프로파일')}"></th>
+          <th th:replace="~{pki/fragments/ui :: certSortHead('notAfter', '만료일')}"></th>
+          <th th:replace="~{pki/fragments/ui :: certSortHead('status', '상태')}"></th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="c : ${page.content}">
+          <td>
+            <a class="primary" th:href="@{/pki/certificates/{serial}(serial=${c.serial})}" th:text="${c.subjectCn}">api.example.com</a>
+            <div class="secondary" th:text="|${c.serial} · ${c.caName}|">1b77e04a9c3d12 · Issuing CA — TLS</div>
+          </td>
+          <td th:text="${c.profileName}">TLS 서버</td>
+          <td>
+            <div class="num" th:text="${#temporals.format(c.notAfter, 'yyyy-MM-dd')}">2027-01-02</div>
+            <div class="hint" th:if="${c.status != null and c.status.name() != 'EXPIRED' and c.status.name() != 'REVOKED' and c.daysLeft <= 90}"
+                 th:text="|${c.daysLeft}일 남음|">95일 남음</div>
+          </td>
+          <td><span th:replace="~{pki/fragments/ui :: certStatus(${c.status})}"></span></td>
+        </tr>
+        <tr th:if="${page.empty}">
+          <td class="empty" colspan="4">조건에 맞는 인증서가 없습니다.</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <nav class="pager" aria-label="페이지">
+      <div th:text="|총 ${page.totalElements}건 · ${page.size}건씩|">총 0건 · 20건씩</div>
+      <div class="pages" th:if="${page.totalPages > 1}"
+           th:with="first=${page.number - 2 > 0} ? ${page.number - 2} : 0,
+                    last=${page.number + 2 < page.totalPages - 1} ? ${page.number + 2} : ${page.totalPages - 1}">
+        <a th:if="${page.hasPrevious()}"
+           th:href="@{/pki/certificates(page=${page.number - 1}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, caId=${filter.caId}, expiringWithinDays=${filter.expiringWithinDays})}">이전</a>
+        <span class="pg" th:unless="${page.hasPrevious()}">이전</span>
+        <a th:each="i : ${#numbers.sequence(first, last)}" th:text="${i + 1}"
+           th:attr="aria-current=${i == page.number} ? 'page'"
+           th:href="@{/pki/certificates(page=${i}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, caId=${filter.caId}, expiringWithinDays=${filter.expiringWithinDays})}">1</a>
+        <a th:if="${page.hasNext()}"
+           th:href="@{/pki/certificates(page=${page.number + 1}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, caId=${filter.caId}, expiringWithinDays=${filter.expiringWithinDays})}">다음</a>
+        <span class="pg" th:unless="${page.hasNext()}">다음</span>
+      </div>
+    </nav>
+  </section>
+</main>
+</body>
+</html>

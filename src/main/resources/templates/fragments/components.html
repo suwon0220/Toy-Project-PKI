@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- 아이콘: ~{fragments/components :: icon('cert')} -->
+<svg th:fragment="icon(name)" class="icon" aria-hidden="true"><use th:href="${'#i-' + name}"></use></svg>
+
+<!-- 인증서 상태 배지: 색 + 아이콘 + 텍스트 -->
+<span th:fragment="status(s)" class="badge" th:classappend="${'is-' + s.key}">
+  <svg class="icon" aria-hidden="true"><use th:href="${'#i-' + s.icon}"></use></svg>
+  <span th:text="${s.label}">유효</span>
+</span>
+
+<!-- 플래시 메시지 -->
+<div th:fragment="flash" th:if="${flash}" class="alert" th:classappend="${'is-' + (flashTone ?: 'info')}" role="status">
+  <svg class="icon" aria-hidden="true"><use th:href="${flashTone == 'ok' ? '#i-check-circle' : '#i-alert'}"></use></svg>
+  <p th:text="${flash}">메시지</p>
+</div>
+
+</body>
+</html>

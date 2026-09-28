@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<!--/*
+  GET  /pki/profiles?id=&copyFrom=&status=       → pki/profiles/index
+  POST /pki/profiles                  (생성)     · POST /pki/profiles/{profileId}           (수정)
+  POST /pki/profiles/{profileId}/activate · /retire · /delete
+  Model: profiles(List<ProfileSummary>), selected(ProfileDetail, nullable), profileForm, editable,
+         caList, certTypes, keyAlgorithms, keyUsageBits, extKeyUsages
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{pki/fragments/layout :: shell('인증서 프로파일', ~{::main}, 'profiles')}">
+<body>
+<main class="stack"
+      th:with="existing=${selected != null},
+               pst=${selected != null and selected.status != null} ? ${selected.status.name()} : 'DRAFT'">
+
+  <div class="page-head">
+    <div class="crumbs">PKI / 인증서 프로파일</div>
+    <div class="page-title-row">
+      <h1 class="page-title">인증서 프로파일</h1>
+    </div>
+  </div>
+
+  <div class="with-nav">
+    <!-- 좌측 프로파일 목록 -->
+    <nav class="plist" aria-label="프로파일 목록">
+      <a class="pitem" th:each="p : ${profiles}"
+         th:href="@{/pki/profiles(id=${p.profileId})}"
+         th:attr="aria-current=${existing and selected.profileId == p.profileId} ? 'page'">
+        <span class="pitem-top">
+          <span class="pitem-name" th:text="${p.name}">TLS 서버</span>
+          <span th:replace="~{pki/fragments/ui :: profileStatus(${p.status})}"></span>
+        </span>
+        <span class="pitem-meta"
+              th:text="|${p.profileId} · v${p.version} · ${p.certType != null and p.certType.name() == 'SUB_CA' ? 'Sub CA' : 'EE'} · 발급 ${p.issuedCount}|">tls-server · v3 · EE · 발급 0</span>
+      </a>
+      <p class="hint" th:if="${#lists.isEmpty(profiles)}" style="padding: 8px 4px">등록된 프로파일이 없습니다.</p>
+      <a class="pnew" th:href="@{/pki/profiles}">+ 새 프로파일</a>
+      <a class="pcopy" th:if="${existing}" th:href="@{/pki/profiles(copyFrom=${selected.profileId})}">선택한 프로파일 복제해서 시작</a>
+    </nav>
+
+    <!-- 우측 편집 / 신규 폼 -->
+    <form class="profile-form" method="post" th:object="${profileForm}"
+          th:action="${existing} ? @{/pki/profiles/{id}(id=${selected?.profileId})} : @{/pki/profiles}">
+      <fieldset class="form-body" th:disabled="${editable == false}">
+        <legend class="sr-only">프로파일 설정</legend>
+
+        <div th:replace="~{pki/fragments/ui :: globalErrors}"></div>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 class="card-title"
+                th:text="${existing} ? ${selected.name} : (${param.copyFrom != null} ? |새 프로파일 — ${param.copyFrom} 복제| : '새 프로파일')">새 프로파일</h2>
+            <span th:if="${existing}" class="badge"
+                  th:classappend="${pst == 'ACTIVE'} ? 'b-ok' : (${pst == 'DRAFT'} ? 'b-warn' : 'b-neutral')"
+                  th:text="|${selected.status} · v${selected.version}|">ACTIVE · v3</span>
+          </div>
+          <div class="notice" th:if="${existing and pst == 'ACTIVE'}"
+               th:text="|ACTIVE 프로파일입니다. 저장하면 v${selected.version + 1}이 만들어지고, 이미 발급된 인증서는 v${selected.version} 정책을 그대로 유지합니다.|">
+            ACTIVE 프로파일입니다.
+          </div>
+          <div class="notice" th:if="${existing and pst == 'RETIRED'}">사용 중지(RETIRED)된 프로파일은 수정할 수 없습니다. 복제해서 새 프로파일을 만드세요.</div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label class="lbl" for="profileId">프로파일 ID <span class="req" aria-hidden="true">*</span></label>
+              <input class="f mono" type="text" th:field="*{profileId}" th:errorclass="is-invalid"
+                     th:readonly="${existing}" pattern="[a-z0-9-]{3,40}" placeholder="tls-server" spellcheck="false">
+              <div class="err" th:if="${#fields.hasErrors('profileId')}" th:errors="*{profileId}">ID 오류</div>
+              <div class="hint" th:unless="${#fields.hasErrors('profileId')}">소문자·숫자·하이픈 3–40자. 생성 후 변경 불가.</div>
+            </div>
+            <div class="field">
+              <label class="lbl" for="name">이름 <span class="req" aria-hidden="true">*</span></label>
+              <input class="f" type="text" maxlength="50" th:field="*{name}" th:errorclass="is-invalid" placeholder="TLS 서버">
+              <div class="err" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">이름 오류</div>
+            </div>
+            <div class="field span-2">
+              <label class="lbl" for="description">설명</label>
+              <input class="f" type="text" maxlength="200" th:field="*{description}" th:errorclass="is-invalid">
+              <div class="err" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">설명 오류</div>
+            </div>
+          </div>
+
+          <fieldset class="plain">
+            <legend class="lbl">인증서 종류</legend>
+            <div class="grid-2" style="gap: 12px">
+              <label class="choice" th:each="ct : ${certTypes}">
+                <input type="radio" th:field="*{certType}" th:value="${ct}">
+                <span th:switch="${ct.name()}">
+                  <th:block th:case="'SUB_CA'"><b>하위 CA (Sub CA)</b><br><span class="hint">CA:TRUE, keyCertSign · cRLSign 필수</span></th:block>
+                  <th:block th:case="'END_ENTITY'"><b>최종 개체 (End Entity)</b><br><span class="hint">서버·클라이언트·장비 인증서. CA:FALSE</span></th:block>
+                  <b th:case="*" th:text="${ct}">END_ENTITY</b>
+                </span>
+              </label>
+            </div>
+            <div class="err" th:if="${#fields.hasErrors('certType')}" th:errors="*{certType}">종류 오류</div>
+          </fieldset>
+        </section>
+
+        <section class="card">
+          <h2 class="card-title">발급 제한</h2>
+          <div class="grid-3">
+            <fieldset class="plain">
+              <legend class="lbl">허용 CA</legend>
+              <label class="ck" th:each="ca : ${caList}">
+                <input type="checkbox" th:field="*{allowedCaIds}" th:value="${ca.caId}"><span th:text="${ca.name}">Issuing CA — TLS</span>
+              </label>
+              <div class="err" th:if="${#fields.hasErrors('allowedCaIds')}" th:errors="*{allowedCaIds}">허용 CA 오류</div>
+            </fieldset>
+            <fieldset class="plain">
+              <legend class="lbl">키 알고리즘</legend>
+              <label class="ck" th:each="a : ${keyAlgorithms}">
+                <input type="checkbox" th:field="*{keyAlgorithms}" th:value="${a}"><span th:text="${#messages.msgOrNull('enum.KeyAlgorithm.' + a) ?: a}">EC P-256</span>
+              </label>
+              <div class="err" th:if="${#fields.hasErrors('keyAlgorithms')}" th:errors="*{keyAlgorithms}">알고리즘 오류</div>
+            </fieldset>
+            <div class="stack" style="gap: 14px">
+              <div class="field">
+                <label class="lbl" for="maxValidityDays">최대 유효기간(일) <span class="req" aria-hidden="true">*</span></label>
+                <input class="f" type="number" min="1" max="3650" th:field="*{maxValidityDays}" th:errorclass="is-invalid">
+                <div class="err" th:if="${#fields.hasErrors('maxValidityDays')}" th:errors="*{maxValidityDays}">최대 유효기간 오류</div>
+              </div>
+              <div class="field">
+                <label class="lbl" for="defaultValidityDays">기본 유효기간(일) <span class="req" aria-hidden="true">*</span></label>
+                <input class="f" type="number" min="1" th:field="*{defaultValidityDays}" th:errorclass="is-invalid">
+                <div class="err" th:if="${#fields.hasErrors('defaultValidityDays')}" th:errors="*{defaultValidityDays}">기본 유효기간 오류</div>
+              </div>
+              <div class="hint">허용 CA 인증서의 남은 유효기간을 넘을 수 없습니다.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="card-title">키 용도</h2>
+          <div class="grid-2" style="gap: 16px 24px">
+            <fieldset class="plain">
+              <legend class="lbl">Key Usage</legend>
+              <label class="ck" th:each="ku : ${keyUsageBits}">
+                <input type="checkbox" th:field="*{keyUsages}" th:value="${ku}"><span class="mono" style="font-size: 13px" th:text="${#messages.msgOrNull('enum.KeyUsageBit.' + ku) ?: ku}">digitalSignature</span>
+              </label>
+              <div class="err" th:if="${#fields.hasErrors('keyUsages')}" th:errors="*{keyUsages}">Key Usage 오류</div>
+              <label class="ck ck-sep"><input type="checkbox" th:field="*{keyUsageCritical}">critical 표시</label>
+            </fieldset>
+            <fieldset class="plain">
+              <legend class="lbl">Extended Key Usage</legend>
+              <label class="ck" th:each="eku : ${extKeyUsages}">
+                <input type="checkbox" th:field="*{extKeyUsages}" th:value="${eku}"><span class="mono" style="font-size: 13px" th:text="${#messages.msgOrNull('enum.ExtKeyUsage.' + eku) ?: eku}">serverAuth</span>
+              </label>
+              <div class="err" th:if="${#fields.hasErrors('extKeyUsages')}" th:errors="*{extKeyUsages}">EKU 오류</div>
+              <div class="field field-sm" style="margin-top: 8px">
+                <label class="lbl" for="customEkuOids">추가 EKU OID</label>
+                <textarea class="f" rows="2" th:field="*{customEkuOids}" th:errorclass="is-invalid" spellcheck="false" placeholder="한 줄에 하나 (예: 1.3.6.1.4.1.…)"></textarea>
+                <div class="err" th:if="${#fields.hasErrors('customEkuOids')}" th:errors="*{customEkuOids}">OID 오류</div>
+              </div>
+            </fieldset>
+          </div>
+          <div class="field sub-ca-only" style="max-width: 280px">
+            <label class="lbl" for="pathLenConstraint">pathLenConstraint</label>
+            <input class="f" type="number" min="0" th:field="*{pathLenConstraint}" th:errorclass="is-invalid">
+            <div class="err" th:if="${#fields.hasErrors('pathLenConstraint')}" th:errors="*{pathLenConstraint}">pathLen 오류</div>
+            <div class="hint">0 = 이 CA 아래에 더 이상 하위 CA 불가. 비우면 제한 없음.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="card-title">Subject · SAN 규칙 · 확장</h2>
+          <div class="grid-3">
+            <div class="stack" style="gap: 14px">
+              <div class="field">
+                <label class="lbl" for="subjectFixedO">O 고정값 (선택)</label>
+                <input class="f" type="text" th:field="*{subjectFixedO}" th:errorclass="is-invalid">
+                <div class="err" th:if="${#fields.hasErrors('subjectFixedO')}" th:errors="*{subjectFixedO}">O 오류</div>
+              </div>
+              <div class="field">
+                <label class="lbl" for="subjectFixedC">C 고정값 (선택)</label>
+                <input class="f" type="text" maxlength="2" th:field="*{subjectFixedC}" th:errorclass="is-invalid" placeholder="KR">
+                <div class="err" th:if="${#fields.hasErrors('subjectFixedC')}" th:errors="*{subjectFixedC}">C 오류</div>
+              </div>
+              <div class="hint">고정값이 있으면 요청 값은 무시됩니다.</div>
+            </div>
+            <fieldset class="plain">
+              <legend class="lbl">SAN</legend>
+              <label class="ck"><input type="checkbox" th:field="*{sanDnsAllowed}">DNS 허용</label>
+              <label class="ck"><input type="checkbox" th:field="*{sanIpAllowed}">IP 허용</label>
+              <label class="ck"><input type="checkbox" th:field="*{wildcardAllowed}">와일드카드 허용</label>
+              <label class="ck"><input type="checkbox" th:field="*{sanRequired}">SAN 필수</label>
+              <div class="err" th:if="${#fields.hasErrors('wildcardAllowed')}" th:errors="*{wildcardAllowed}">SAN 오류</div>
+            </fieldset>
+            <fieldset class="plain">
+              <legend class="lbl">확장</legend>
+              <label class="ck"><input type="checkbox" th:field="*{includeAiaOcsp}">AIA — OCSP</label>
+              <label class="ck"><input type="checkbox" th:field="*{includeAiaCaIssuers}">AIA — caIssuers</label>
+              <label class="ck"><input type="checkbox" th:field="*{includeCdp}">CRL 배포 지점</label>
+              <label class="ck"><input type="checkbox" th:field="*{ocspNoCheck}">ocsp-nocheck</label>
+              <div class="err" th:if="${#fields.hasErrors('ocspNoCheck')}" th:errors="*{ocspNoCheck}">ocsp-nocheck 오류</div>
+              <div class="hint">ocsp-nocheck는 EKU OCSPSigning일 때만 허용</div>
+            </fieldset>
+          </div>
+          <div class="field">
+            <label class="lbl" for="policyOids">인증서 정책 OID</label>
+            <textarea class="f" rows="2" th:field="*{policyOids}" th:errorclass="is-invalid" spellcheck="false" placeholder="한 줄에 하나"></textarea>
+            <div class="err" th:if="${#fields.hasErrors('policyOids')}" th:errors="*{policyOids}">정책 OID 오류</div>
+          </div>
+        </section>
+
+        <!--/* 상태 전환은 같은 form 에서 formaction 으로 보낸다 (form 중첩 불가, JS 없음) */-->
+        <div class="actions">
+          <button type="submit" class="btn btn-primary btn-md"
+                  th:text="${!existing} ? 'DRAFT로 생성' : (${pst == 'ACTIVE'} ? '새 버전으로 저장' : '저장')">DRAFT로 생성</button>
+          <button type="submit" class="btn btn-accent-outline btn-md" formnovalidate
+                  th:if="${existing and pst == 'DRAFT'}"
+                  th:formaction="@{/pki/profiles/{id}/activate(id=${selected.profileId})}">활성화</button>
+          <span class="grow"></span>
+          <button type="submit" class="btn btn-danger-outline btn-md" formnovalidate
+                  th:if="${existing and pst == 'ACTIVE'}"
+                  th:formaction="@{/pki/profiles/{id}/retire(id=${selected.profileId})}">사용 중지 (RETIRED)</button>
+          <button type="submit" class="btn btn-danger-outline btn-md" formnovalidate
+                  th:if="${existing and pst == 'DRAFT'}"
+                  th:formaction="@{/pki/profiles/{id}/delete(id=${selected.profileId})}">삭제</button>
+        </div>
+      </fieldset>
+    </form>
+  </div>
+</main>
+</body>
+</html>

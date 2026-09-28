@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<!--/*
+  GET /pki/ocsp/logs?from=&to=&serial=&caId=&result=&includeProbe=&page=&size=  → pki/ocsp/logs
+  Model: page(Page<OcspLogEntry>), filter(OcspLogFilter), caList, health(OcspHealthSummary)
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{pki/fragments/layout :: shell('OCSP 로그', ~{::main}, 'ocsp')}">
+<body>
+<main class="stack">
+
+  <div class="page-head">
+    <div class="crumbs">PKI / OCSP 로그</div>
+    <div class="page-title-row">
+      <h1 class="page-title">OCSP 로그</h1>
+      <div role="status" class="health"
+           th:classappend="${health == null or health.lastCheckedAt == null} ? 'health-unknown' : (${health.ok} ? 'health-ok' : 'health-fail')">
+        <span th:if="${health == null or health.lastCheckedAt == null}">응답기 상태 확인 전</span>
+        <th:block th:unless="${health == null or health.lastCheckedAt == null}">
+          <span th:text="${health.ok} ? '응답기 정상' : |응답기 이상 — ${health.failureReason}|">응답기 정상</span>
+          <span class="sub" th:text="|· 자동 확인 ${#temporals.format(health.lastCheckedAt, 'HH:mm')}|">· 자동 확인 14:05</span>
+        </th:block>
+      </div>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <form th:action="@{/pki/ocsp/logs}" th:object="${filter}" method="get" role="search">
+      <div class="field field-sm w-190">
+        <label class="lbl" for="from">시작</label>
+        <input class="f" type="datetime-local" th:field="*{from}">
+      </div>
+      <div class="field field-sm w-190">
+        <label class="lbl" for="to">끝</label>
+        <input class="f" type="datetime-local" th:field="*{to}">
+      </div>
+      <div class="field field-sm grow">
+        <label class="lbl" for="serial">시리얼</label>
+        <input class="f mono" type="search" th:field="*{serial}" placeholder="hex" spellcheck="false">
+      </div>
+      <div class="field field-sm w-170">
+        <label class="lbl" for="caId">CA</label>
+        <select class="f" th:field="*{caId}">
+          <option value="">전체</option>
+          <option th:each="ca : ${caList}" th:value="${ca.caId}" th:text="${ca.name}">Issuing CA — TLS</option>
+        </select>
+      </div>
+      <div class="field field-sm w-140">
+        <label class="lbl" for="result">결과</label>
+        <select class="f" th:field="*{result}">
+          <option value="">전체</option>
+          <option value="GOOD">GOOD</option>
+          <option value="REVOKED">REVOKED</option>
+          <option value="UNKNOWN">UNKNOWN</option>
+          <option value="ERROR">오류</option>
+        </select>
+      </div>
+      <label class="ck ck-inline"><input type="checkbox" th:field="*{includeProbe}">자동 확인 포함</label>
+      <button type="submit" class="btn btn-dark">조회</button>
+    </form>
+  </div>
+
+  <section class="card card-flush">
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+        <tr>
+          <th aria-sort="descending">수신 시각 ▼</th>
+          <th>방식</th>
+          <th>클라이언트</th>
+          <th>CA · 시리얼</th>
+          <th>결과</th>
+          <th>응답 상태</th>
+          <th>지연</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="e : ${page.content}">
+          <td class="num" th:text="${#temporals.format(e.receivedAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-29 10:42:18</td>
+          <td class="num" th:text="${e.method}">POST</td>
+          <td class="num" th:text="${e.clientIp}">10.0.12.4</td>
+          <td>
+            <div th:text="${e.caName} ?: '—'">Issuing CA — TLS</div>
+            <div class="secondary" th:text="${e.serial} ?: '—'">1b77e04a9c3d12</div>
+          </td>
+          <td>
+            <span th:replace="~{pki/fragments/ui :: ocspResult(${e.result})}"></span>
+            <span class="tag" th:if="${e.probe}" title="자동 점검 요청">점검</span>
+          </td>
+          <td class="num" th:style="${e.responseStatus != 'successful'} ? 'color: var(--warn-ink)'" th:text="${e.responseStatus}">successful</td>
+          <td class="num" th:text="|${e.latencyMs} ms|">12 ms</td>
+        </tr>
+        <tr th:if="${page.empty}">
+          <td class="empty" colspan="7">조건에 맞는 요청 로그가 없습니다. 기간을 비우면 최근 24시간을 조회합니다.</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <nav class="pager" aria-label="페이지">
+      <div th:text="|총 ${page.totalElements}건 · ${page.size}건씩 · 보관 30일|">총 0건 · 50건씩 · 보관 30일</div>
+      <div class="pages" th:if="${page.totalPages > 1}"
+           th:with="first=${page.number - 2 > 0} ? ${page.number - 2} : 0,
+                    last=${page.number + 2 < page.totalPages - 1} ? ${page.number + 2} : ${page.totalPages - 1}">
+        <a th:if="${page.hasPrevious()}"
+           th:href="@{/pki/ocsp/logs(page=${page.number - 1}, size=${page.size}, from=${filter.from}, to=${filter.to}, serial=${filter.serial}, caId=${filter.caId}, result=${filter.result}, includeProbe=${filter.includeProbe})}">이전</a>
+        <span class="pg" th:unless="${page.hasPrevious()}">이전</span>
+        <a th:each="i : ${#numbers.sequence(first, last)}" th:text="${i + 1}"
+           th:attr="aria-current=${i == page.number} ? 'page'"
+           th:href="@{/pki/ocsp/logs(page=${i}, size=${page.size}, from=${filter.from}, to=${filter.to}, serial=${filter.serial}, caId=${filter.caId}, result=${filter.result}, includeProbe=${filter.includeProbe})}">1</a>
+        <a th:if="${page.hasNext()}"
+           th:href="@{/pki/ocsp/logs(page=${page.number + 1}, size=${page.size}, from=${filter.from}, to=${filter.to}, serial=${filter.serial}, caId=${filter.caId}, result=${filter.result}, includeProbe=${filter.includeProbe})}">다음</a>
+        <span class="pg" th:unless="${page.hasNext()}">다음</span>
+      </div>
+    </nav>
+  </section>
+</main>
+</body>
+</html>
