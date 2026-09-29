@@ -1,10 +1,12 @@
 package toy.pki.ca.dto.profile;
 
 import java.util.Optional;
-import java.util.UUID;
 
-public record ProfileIdForm(
-        String alias,
-        Optional<String> description
-) {
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
+
+@Data
+public class ProfileIdForm {
+    @NotBlank String alias;
+    @NotBlank Optional<String> description;
 }

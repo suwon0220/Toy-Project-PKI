@@ -7,11 +7,11 @@
          caList(List<CaSummary>), certTypes(CertType[]), keyAlgorithmPresets(KeyAlgorithmPreset[]),
          keyUsages(KeyUsage[]), standardExtendedKeyUsages(StandardExtendedKeyUsage[])
 
-  ProfileForm 의 record 하위 폼(profileIdForm, certTypeForm, allowedCaIds, allowedKeyAlgorithm,
+  ProfileForm 의 record 하위 폼(allowedCaIds, allowedKeyAlgorithm,
   authorityKeyIdentifierForm, authorityInformationAccessForm)은 게터가 없어
   th:field 대신 name / value(checked) 로 바인딩한다. 오류는 '하위폼.*' 로 모아서 표시.
   validityForm 도 기본 생성자가 없어(@Nonnull 필드) 같은 방식. keyUsageForm, extendedKeyUsageForm,
-  basicConstraintsForm 은 th:field 사용.
+  basicConstraintsForm 과 certType 은 th:field 사용. profileIdForm 은 프로퍼티 접근을 사용한다.
   체크박스는 해제 시 값이 전송되지 않으므로 '_' 마커 hidden 을 함께 둔다.
 */-->
 <html lang="ko" th:replace="~{pki/fragments/layout :: shell('인증서 프로파일', ~{::main}, 'profiles')}"
@@ -72,18 +72,18 @@
                         새 프로파일을 만드세요.
                     </div>
 
-                    <th:block th:with="pif=${profileForm.profileIdForm}, ctf=${profileForm.certTypeForm}">
+                    <th:block th:with="pif=${profileForm.profileIdForm}">
                         <div class="grid-2">
                             <div class="field">
                                 <label class="lbl" for="profileAlias">별칭 <span aria-hidden="true" class="req">*</span></label>
                                 <input class="f mono" id="profileAlias" maxlength="50" name="profileIdForm.alias"
                                        placeholder="tls-server" spellcheck="false" th:classappend="${#fields.hasErrors('profileIdForm.*')} ? 'is-invalid'"
-                                       th:readonly="${existing}" th:value="${pif?.alias()}" type="text">
+                                       th:readonly="${existing}" th:value="${pif?.alias}" type="text">
                             </div>
                             <div class="field">
                                 <label class="lbl" for="profileDescription">설명</label>
                                 <input class="f" id="profileDescription" maxlength="200" name="profileIdForm.description"
-                                       th:value="${pif?.description()?.orElse(null)}" type="text">
+                                       th:value="${pif?.description?.orElse(null)}" type="text">
                             </div>
                         </div>
                         <div class="err" th:each="e : ${#fields.errors('profileIdForm.*')}" th:text="${e}">별칭 오류</div>
@@ -92,7 +92,7 @@
                             <legend class="lbl">인증서 종류</legend>
                             <div class="grid-2" style="gap: 12px">
                                 <label class="choice" th:each="ct : ${certTypes}">
-                                    <input name="certTypeForm.certType" th:checked="${ctf?.certType() == ct}" th:value="${ct}"
+                                    <input th:field="*{certType}" th:value="${ct}"
                                            type="radio">
                                     <span th:switch="${ct.name()}">
                   <th:block th:case="'CA'"><b>CA</b><br><span class="hint">CA:TRUE, keyCertSign · cRLSign 필수</span></th:block>
@@ -101,7 +101,7 @@
                 </span>
                                 </label>
                             </div>
-                            <div class="err" th:each="e : ${#fields.errors('certTypeForm.*')}" th:text="${e}">종류 오류</div>
+                            <div class="err" th:each="e : ${#fields.errors('certType')}" th:text="${e}">종류 오류</div>
                         </fieldset>
                     </th:block>
                 </section>
@@ -190,11 +190,11 @@
                                     <input class="f mono" placeholder="1.3.6.1.4.1.…" spellcheck="false"
                                            th:aria-label="|추가 EKU ${i + 1} OID|"
                                            th:name="|extendedKeyUsageForm.customExtendedKeyUsages[${i}].oid|"
-                                           th:value="${c?.oid()}" type="text">
+                                           th:value="${c?.oid}" type="text">
                                     <input class="f" placeholder="표시 이름"
                                            th:aria-label="|추가 EKU ${i + 1} 이름|"
                                            th:name="|extendedKeyUsageForm.customExtendedKeyUsages[${i}].displayName|"
-                                           th:value="${c?.displayName()}" type="text">
+                                           th:value="${c?.displayName}" type="text">
                                 </div>
                                 <div class="err" th:each="e : ${#fields.errors('extendedKeyUsageForm.customExtendedKeyUsages*')}"
                                      th:text="${e}">OID 오류

@@ -1,4 +1,13 @@
 package toy.pki.ca.dto.profile;
 
-public record CustomExtendedKeyUsageForm(String oid, String displayName) {
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class CustomExtendedKeyUsageForm {
+    private String oid;
+    private String displayName;
 }
