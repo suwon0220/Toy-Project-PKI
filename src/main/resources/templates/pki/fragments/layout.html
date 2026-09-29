@@ -2,7 +2,7 @@
 <!--/*
   PKI 콘솔 공통 레이아웃.
   사용: <html th:replace="~{pki/fragments/layout :: shell('인증서 발급', ~{::main}, 'issue')}">
-  activeMenu: issue | certificates | profiles | ocsp | kms
+  activeMenu: issue | certificates | profiles | kms | logs
   공통 Model(선택): flashSuccess, flashError (String), currentUser (String)
 */-->
 <html lang="ko" th:fragment="shell(title, content, activeMenu)" xmlns:th="http://www.thymeleaf.org">
@@ -28,8 +28,8 @@
             <a th:attr="aria-current=${activeMenu == 'certificates'} ? 'page'" th:href="@{/pki/certificates}">인증서 상태
                 관리</a>
             <a th:attr="aria-current=${activeMenu == 'profiles'} ? 'page'" th:href="@{/pki/profiles}">인증서 프로파일</a>
-            <a th:attr="aria-current=${activeMenu == 'ocsp'} ? 'page'" th:href="@{/pki/ocsp/logs}">OCSP 로그</a>
             <a th:attr="aria-current=${activeMenu == 'kms'} ? 'page'" th:href="@{/pki/kms}">KMS 키</a>
+            <a th:attr="aria-current=${activeMenu == 'logs'} ? 'page'" th:href="@{/pki/logs}">전체 로그</a>
         </nav>
         <div class="side-foot" th:text="${currentUser} ?: 'anonymous'">anonymous</div>
     </aside>

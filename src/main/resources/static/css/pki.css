@@ -1220,7 +1220,8 @@ fieldset.form-body {
     display: none;
 }
 
-.profile-form:has(input[name="certType"][value="SUB_CA"]:checked) .sub-ca-only {
+.profile-form:has(input[name="certTypeForm.certType"][value="CA"]:checked) .sub-ca-only,
+.profile-form:has(input[name="basicConstraintsForm.CA"]:checked) .sub-ca-only {
     display: flex;
 }
 
@@ -1254,6 +1255,153 @@ fieldset.form-body {
     font-size: 15px;
     font-weight: 700;
     color: var(--danger-ink);
+}
+
+/* ---------- kms: 키 상세 팝업 (?keyId=, JS 없음) ---------- */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(23, 24, 28, 0.45);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 110px 16px 32px;
+    overflow-y: auto;
+}
+
+.modal {
+    width: 680px;
+    max-width: 100%;
+    background: var(--surface);
+    border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-head, .modal-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 24px;
+}
+
+.modal-head {
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.modal-foot .grow {
+    flex-grow: 1;
+}
+
+.modal-foot {
+    border-top: 1px solid var(--line-soft);
+    background: #FBFAF7;
+    flex-wrap: wrap;
+}
+
+.modal-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.modal-close {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: var(--ink-3);
+}
+
+.modal-close:hover {
+    background: var(--seg);
+}
+
+.mini-log {
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+}
+
+.mini-log > div {
+    display: grid;
+    grid-template-columns: 150px 90px minmax(0, 1fr);
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line-row);
+    font-size: 12.5px;
+}
+
+.mini-log > div:last-child {
+    border-bottom: 0;
+}
+
+/* ---------- logs: 분류 탭 · 분류 칩 ---------- */
+.tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+}
+
+.tabs a {
+    padding: 12px 16px;
+    margin-bottom: -1px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+}
+
+.tabs a:hover {
+    color: var(--ink);
+}
+
+.tabs a[aria-current="page"] {
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+}
+
+.cat {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 5px;
+    white-space: nowrap;
+    background: var(--neutral-soft);
+    color: var(--ink-3);
+}
+
+.cat-CERTIFICATE { background: var(--accent-soft); color: var(--accent-ink); }
+.cat-PROFILE { background: #E6ECF6; color: #1F3F73; }
+.cat-KMS { background: #F1E8F6; color: #5A2A73; }
+.cat-CRL { background: var(--warn-soft); color: var(--warn-ink); }
+
+.ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pre {
+    margin: 0;
+    padding: 14px 16px;
+    background: #1E2026;
+    color: #E6E3DC;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 /* ---------- responsive ---------- */

@@ -3,7 +3,7 @@ package toy.pki.kms.infrastructure.jca;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import toy.pki.kms.domain.algorithm.KeyAlgorithm;
-import toy.pki.kms.domain.algorithm.KeyGenerationProfile;
+import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 import toy.pki.kms.domain.key.ManagedKey;
 import toy.pki.kms.domain.parameter.KeyGenerationParameter;
 
@@ -26,7 +26,7 @@ public class RsaKeyGenerator implements KeyGenerator {
 
     @Override
     public ManagedKey generate(
-            KeyGenerationProfile keyGenerationProfile,
+            KeyAlgorithmPreset keyAlgorithmPreset,
             KeyGenerationParameter keyGenerationParameter
     ) throws GeneralSecurityException {
 
@@ -36,7 +36,7 @@ public class RsaKeyGenerator implements KeyGenerator {
 
         KeyPair keyPair = keyPairGenerator.generateKeyPair();
 
-        return new ManagedKey(keyGenerationProfile, keyPair);
+        return new ManagedKey(keyAlgorithmPreset, keyPair);
     }
 
 }

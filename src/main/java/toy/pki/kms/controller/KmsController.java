@@ -10,7 +10,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import toy.pki.kms.domain.algorithm.KeyAlgorithm;
-import toy.pki.kms.domain.algorithm.KeyGenerationProfile;
+import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 import toy.pki.kms.domain.algorithm.SignatureAlgorithm;
 import toy.pki.kms.domain.key.KeyID;
 import toy.pki.kms.domain.key.ManagedKey;
@@ -38,8 +38,8 @@ public class KmsController {
     }
 
     @ModelAttribute("profiles")
-    public KeyGenerationProfile[] profiles() {
-        return KeyGenerationProfile.values();
+    public KeyAlgorithmPreset[] profiles() {
+        return KeyAlgorithmPreset.values();
     }
 
     @ModelAttribute("signatureAlgorithms")
@@ -71,7 +71,7 @@ public class KmsController {
             return "/pki/kms/index";
         }
 
-        ManagedKey generated = keyManagementService.generate(request.keyGenerationProfile());
+        ManagedKey generated = keyManagementService.generate(request.keyAlgorithmPreset());
         managedKeyRepository.save(generated);
         redirectAttributes.addFlashAttribute("message", "Key generated successfully.");
         return "redirect:/pki/kms";
@@ -81,12 +81,12 @@ public class KmsController {
     public static class KeyQuery {
 
         private KeyAlgorithm keyAlgorithm;
-        private KeyGenerationProfile keyGenerationProfile;
+        private KeyAlgorithmPreset keyAlgorithmPreset;
         private KeyID keyId;
 
         public Predicate<ManagedKey> toPredicate() {
-            return key -> (keyAlgorithm == null || key.getKeyGenerationProfile().getAlgorithm().equals(keyAlgorithm))
-                    && (keyGenerationProfile == null || key.getKeyGenerationProfile().equals(keyGenerationProfile))
+            return key -> (keyAlgorithm == null || key.getKeyAlgorithmPreset().getAlgorithm().equals(keyAlgorithm))
+                    && (keyAlgorithmPreset == null || key.getKeyAlgorithmPreset().equals(keyAlgorithmPreset))
                     && (keyId == null || key.getId().equals(keyId));
         }
     }

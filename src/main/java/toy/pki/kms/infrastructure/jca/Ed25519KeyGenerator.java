@@ -14,14 +14,13 @@ import java.security.Provider;
 
 @Component
 @RequiredArgsConstructor
-public class EcKeyGenerator implements KeyGenerator {
+public class Ed25519KeyGenerator implements KeyGenerator {
 
     private final Provider provider;
-    private final JcaKeyGenerationSpecFactory jcaKeyGenerationSpecFactory;
 
     @Override
     public KeyAlgorithm supports() {
-        return KeyAlgorithm.EC;
+        return KeyAlgorithm.Ed25519;
     }
 
     @Override
@@ -29,13 +28,8 @@ public class EcKeyGenerator implements KeyGenerator {
             KeyAlgorithmPreset keyAlgorithmPreset,
             KeyGenerationParameter keyGenerationParameter
     ) throws GeneralSecurityException {
-
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC", provider);
-
-        keyPairGenerator.initialize(jcaKeyGenerationSpecFactory.create(keyGenerationParameter));
-
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("Ed25519", provider);
         KeyPair keyPair = keyPairGenerator.generateKeyPair();
-
         return new ManagedKey(keyAlgorithmPreset, keyPair);
     }
 

@@ -78,14 +78,6 @@
             <section class="card">
                 <h2 class="card-title">확장</h2>
                 <dl class="dl dl-wide">
-                    <dt>SAN</dt>
-                    <dd>
-                        <ul th:unless="${#lists.isEmpty(cert.sans)}">
-                            <li th:each="s : ${cert.sans}"><span class="tag" th:text="${s}">DNS:api.example.com</span>
-                            </li>
-                        </ul>
-                        <span class="muted" th:if="${#lists.isEmpty(cert.sans)}">없음</span>
-                    </dd>
                     <dt>Key Usage</dt>
                     <dd>
                         <ul th:unless="${#lists.isEmpty(cert.keyUsages)}">

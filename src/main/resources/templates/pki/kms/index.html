@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <!--/*
   KmsController 현재 구현에 맞춘 화면.
-  GET  /pki/kms?keyAlgorithm=&keyGenerationProfile=&signKeyId=&deleteKeyId=   → pki/kms/index
+  GET  /pki/kms?keyAlgorithm=&keyAlgorithmPreset=&keyId=&signKeyId=&deleteKeyId=   → pki/kms/index
   POST /pki/kms                                  (키 생성 · 검증 실패 시 같은 뷰)
   Model: keys(List<ManagedKey>), keyQuery(KeyQuery), algorithms(KeyAlgorithm[]),
-         profiles(KeyGenerationProfile[]), signatureAlgorithms(SignatureAlgorithm[]),
+         profiles(KeyAlgorithmPreset[]), signatureAlgorithms(SignatureAlgorithm[]),
          keyGenerationRequest(KeyGenerationRequest record)
-  선택(없어도 됨): signResult, flashSuccess, flashError
+  선택(없어도 됨): signResult, flashSuccess, flashError,
+         detailKey(KmsKeyDetail — ?keyId= 가 있을 때만. 목록 위에 상세 팝업을 그림 · 컨트롤러 구현 필요.
+                   목록 별칭 링크는 컨트롤러가 keyId 를 상세용으로 받게 되면 추가)
 
   signKeyId · deleteKeyId 는 Model 에 없으므로 요청 파라미터(param)로 읽는다.
   서명 · 삭제 · 공개키 요청 경로는 API 명세(/pki/kms/keys/{keyId}/...)를 따른다 — 컨트롤러 구현 필요.
@@ -36,9 +38,9 @@
                     <option value="">알고리즘 전체</option>
                     <option th:each="a : ${algorithms}" th:text="${a}" th:value="${a}">EC</option>
                 </select>
-                <label class="sr-only" for="keyGenerationProfile">프로파일</label>
-                <select class="f w-150" style="height: 36px" th:field="*{keyGenerationProfile}">
-                    <option value="">프로파일 전체</option>
+                <label class="sr-only" for="keyAlgorithmPreset">알고리즘 프리셋</label>
+                <select class="f w-150" style="height: 36px" th:field="*{keyAlgorithmPreset}">
+                    <option value="">프리셋 전체</option>
                     <option th:each="p : ${profiles}" th:text="${p.algorithm.name() == 'EC'} ? |EC ${p.displayName}| : ${p.displayName}"
                             th:value="${p}">EC P-256
                     </option>
@@ -65,7 +67,7 @@
                         <div class="secondary" th:text="${kid}">7d1e2c4a-…</div>
                     </td>
                     <td class="num"
-                        th:text="${k.keyGenerationProfile.algorithm.name() == 'EC'} ? |EC ${k.keyGenerationProfile.displayName}| : ${k.keyGenerationProfile.displayName}">
+                        th:text="${k.keyAlgorithmPreset.algorithm.name() == 'EC'} ? |EC ${k.keyAlgorithmPreset.displayName}| : ${k.keyAlgorithmPreset.displayName}">
                         EC P-384
                     </td>
                     <td class="num" th:text="${#dates.format(k.createdAt, 'yyyy-MM-dd HH:mm')}">2026-03-02 10:00</td>
@@ -113,11 +115,11 @@
                 </ul>
             </div>
             <div class="field field-sm">
-                <label class="lbl" for="keyGenerationProfile-new">키 프로파일 <span aria-hidden="true"
+                <label class="lbl" for="keyAlgorithmPreset-new">키 알고리즘 <span aria-hidden="true"
                                                                                class="req">*</span></label>
-                <select class="f" id="keyGenerationProfile-new" name="keyGenerationProfile" required>
+                <select class="f" id="keyAlgorithmPreset-new" name="keyAlgorithmPreset" required>
                     <option value="">선택하세요</option>
-                    <option th:each="p : ${profiles}" th:selected="${keyGenerationRequest != null and keyGenerationRequest.keyGenerationProfile() == p}"
+                    <option th:each="p : ${profiles}" th:selected="${keyGenerationRequest != null and keyGenerationRequest.keyAlgorithmPreset() == p}"
                             th:text="${p.algorithm.name() == 'EC'} ? |EC ${p.displayName}| : ${p.displayName}"
                             th:value="${p}">EC P-256
                     </option>
@@ -143,7 +145,7 @@
                     <div class="sign-grid">
                         <div class="field field-sm">
                             <label class="lbl" for="signKeyAlias">키</label>
-                            <input class="f" id="signKeyAlias" readonly th:value="|${k.alias ?: '(별칭 없음)'} · ${k.keyGenerationProfile.displayName}|"
+                            <input class="f" id="signKeyAlias" readonly th:value="|${k.alias ?: '(별칭 없음)'} · ${k.keyAlgorithmPreset.displayName}|"
                                    type="text">
                             <div class="hint">다른 키는 목록의 <b>서명</b>으로 고릅니다.</div>
                         </div>
@@ -151,7 +153,7 @@
                             <label class="lbl" for="signatureAlgorithm">서명 알고리즘</label>
                             <select class="f mono" id="signatureAlgorithm" name="signatureAlgorithm"
                                     required style="font-size: 12.5px">
-                                <option th:each="sa : ${signatureAlgorithms}" th:selected="${(sa.name() == 'ECDSA' and k.keyGenerationProfile.algorithm.name() == 'EC') or (sa.name() == 'RSA' and k.keyGenerationProfile.algorithm.name() == 'RSA')}" th:text="${sa.jcaName}"
+                                <option th:each="sa : ${signatureAlgorithms}" th:selected="${(sa.name() == 'ECDSA' and k.keyAlgorithmPreset.algorithm.name() == 'EC') or (sa.name() == 'RSA' and k.keyAlgorithmPreset.algorithm.name() == 'RSA')}" th:text="${sa.jcaName}"
                                         th:value="${sa}">
                                     ECDSA
                                 </option>
@@ -189,6 +191,70 @@
                     <dt>서명 (Base64)</dt>
                     <dd class="mono break" th:text="${signResult.signatureBase64}">…</dd>
                 </dl>
+            </div>
+        </section>
+    </div>
+    <!--/* 키 상세 팝업: JS 없이 th:if 로 그리는 오버레이. 닫기 = 쿼리 없는 /pki/kms */-->
+    <div class="overlay" th:if="${detailKey != null}"
+         th:with="dkid=${detailKey.keyId.toString()}">
+        <section aria-labelledby="kd-title" aria-modal="true" class="modal" role="dialog">
+            <div class="modal-head">
+                <h2 class="card-title" id="kd-title" th:text="${detailKey.alias} ?: '(별칭 없음)'">tls-issuing-ca</h2>
+                <a aria-label="닫기" class="modal-close" th:href="@{/pki/kms}">
+                    <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" stroke-linecap="round"
+                         stroke-width="2" viewBox="0 0 24 24" width="20">
+                        <line x1="6" x2="18" y1="6" y2="18"></line>
+                        <line x1="18" x2="6" y1="6" y2="18"></line>
+                    </svg>
+                </a>
+            </div>
+            <div class="modal-body">
+                <dl class="dl" style="grid-template-columns: 130px minmax(0, 1fr)">
+                    <dt>키 ID</dt>
+                    <dd class="mono" th:text="${dkid}">7d1e2c4a-3b90-4f6e-9a1c-8e55d2019f03</dd>
+                    <dt>알고리즘</dt>
+                    <dd th:text="|${detailKey.algorithm} · ${detailKey.keySpec}|">EC · P-384 (secp384r1)</dd>
+                    <dt>기본 서명 알고리즘</dt>
+                    <dd class="mono" th:text="${detailKey.defaultSignatureAlgorithm}">SHA384withECDSA</dd>
+                    <dt>생성일</dt>
+                    <dd class="mono" th:text="${#temporals.format(detailKey.createdAt, 'yyyy-MM-dd HH:mm:ss')}">2026-03-02 09:12:44</dd>
+                    <dt>공개키 지문</dt>
+                    <dd class="mono break" th:text="|SHA-256 ${detailKey.spkiSha256}|">SHA-256 …</dd>
+                    <dt>사용 중인 CA</dt>
+                    <dd th:classappend="${#lists.isEmpty(detailKey.usedByCa)} ? 'muted'"
+                        th:text="${#lists.isEmpty(detailKey.usedByCa)} ? '없음' : ${#strings.listJoin(detailKey.usedByCa, ', ')}">
+                        Issuing CA — TLS
+                    </dd>
+                    <dt>서명 이력</dt>
+                    <dd>
+                        <span th:text="${detailKey.lastSignedAt != null} ? |${detailKey.signCount}회 · 마지막 ${#temporals.format(detailKey.lastSignedAt, 'yyyy-MM-dd HH:mm')}| : |${detailKey.signCount}회|">12회</span>
+                        <span class="hint">(전체 로그 기준)</span>
+                    </dd>
+                </dl>
+                <div class="field field-sm">
+                    <label class="lbl" for="kd-pem">공개키 (PEM)</label>
+                    <textarea class="f mono" id="kd-pem" readonly rows="4" spellcheck="false"
+                              style="font-size: 12px; resize: none"
+                              th:text="${detailKey.publicKeyPem}">-----BEGIN PUBLIC KEY-----</textarea>
+                </div>
+                <div class="field field-sm">
+                    <div class="lbl">최근 활동</div>
+                    <div class="mini-log" th:unless="${#lists.isEmpty(detailKey.recentLogs)}">
+                        <div th:each="l : ${detailKey.recentLogs}">
+                            <a class="mono" th:href="@{/pki/logs/{id}(id=${l.id})}"
+                               th:text="${#temporals.format(l.occurredAt, 'yyyy-MM-dd HH:mm')}">2026-09-29 10:31</a>
+                            <div style="font-weight: 600" th:insert="~{pki/fragments/ui :: label('AuditAction', ${l.action})}">서명</div>
+                            <div class="hint ellipsis" th:text="${l.summary}">SHA384withECDSA</div>
+                        </div>
+                    </div>
+                    <p class="hint" th:if="${#lists.isEmpty(detailKey.recentLogs)}">기록된 활동이 없습니다.</p>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <a class="btn btn-outline" th:href="@{/pki/kms/keys/{id}/public-key(id=${dkid})}">공개키 다운로드 (.pem)</a>
+                <a class="btn btn-accent-outline" th:href="@{/pki/kms(signKeyId=${dkid})} + '#sign'">이 키로 서명</a>
+                <span class="grow"></span>
+                <a class="btn btn-danger-outline" th:href="@{/pki/kms(deleteKeyId=${dkid})} + '#delete'">삭제</a>
             </div>
         </section>
     </div>

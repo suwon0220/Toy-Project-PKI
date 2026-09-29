@@ -2,9 +2,7 @@ package toy.pki.kms.infrastructure.jca;
 
 import jakarta.annotation.Nonnull;
 import org.springframework.stereotype.Component;
-import toy.pki.kms.domain.parameter.EcKeyGenerationParameter;
-import toy.pki.kms.domain.parameter.KeyGenerationParameter;
-import toy.pki.kms.domain.parameter.RsaKeyGenerationParameter;
+import toy.pki.kms.domain.parameter.*;
 
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECGenParameterSpec;

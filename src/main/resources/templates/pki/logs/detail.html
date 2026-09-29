@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<!--/*
+  GET /pki/logs/{id}  → pki/logs/detail (없으면 404)
+  Model: entry(AuditLogEntry, detail JSON 포함),
+         related(List<AuditLogEntry>, 같은 targetType + targetId 최근 10건)
+*/-->
+<html lang="ko" th:replace="~{pki/fragments/layout :: shell('로그 상세', ~{::main}, 'logs')}"
+      xmlns:th="http://www.thymeleaf.org">
+<body>
+<main class="stack">
+
+    <div class="page-head">
+        <div class="crumbs">PKI / <a th:href="@{/pki/logs}">전체 로그</a> / <span th:text="${entry.id}">1024</span></div>
+        <div class="page-title-row">
+            <h1 class="page-title title-with-badge">
+                <span th:insert="~{pki/fragments/ui :: label('AuditAction', ${entry.action})}">폐지</span>
+                <span th:replace="~{pki/fragments/ui :: auditResult(${entry.result})}"></span>
+            </h1>
+            <a class="btn btn-outline" th:href="@{/pki/logs(category=${entry.category})}">목록으로</a>
+        </div>
+    </div>
+
+    <section class="card">
+        <h2 class="card-title">요약</h2>
+        <dl class="dl">
+            <dt>시각</dt>
+            <dd class="mono" th:text="${#temporals.format(entry.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-29 10:40:05</dd>
+            <dt>분류</dt>
+            <dd><span th:replace="~{pki/fragments/ui :: auditCategory(${entry.category})}"></span></dd>
+            <dt>대상</dt>
+            <dd class="mono" th:text="${entry.targetId} ? |${entry.targetType} / ${entry.targetId}| : '—'">CERTIFICATE / 52e1ab88c0f731</dd>
+            <dt>내용</dt>
+            <dd th:text="${entry.summary}">keyCompromise(1) · CRL 즉시 발행</dd>
+            <dt>수행자</dt>
+            <dd class="mono" th:text="${entry.actor}">admin</dd>
+            <dt>클라이언트 IP</dt>
+            <dd class="mono" th:text="${entry.clientIp} ?: '—'">10.0.12.4</dd>
+            <th:block th:if="${entry.probe}">
+                <dt>자동 점검</dt>
+                <dd>예 — OCSP 응답기 자동 점검 요청</dd>
+            </th:block>
+        </dl>
+    </section>
+
+    <section class="card">
+        <h2 class="card-title">상세 (detail)</h2>
+        <pre class="pre" th:if="${entry.detail != null}" th:text="${entry.detail}">{"before": {"status": "VALID"}, "after": {"status": "REVOKED"}}</pre>
+        <p class="hint" th:if="${entry.detail == null}">상세 정보가 없습니다.</p>
+    </section>
+
+    <section class="card card-flush" th:unless="${#lists.isEmpty(related)}">
+        <div class="card-head">
+            <h2 class="card-title">같은 대상의 최근 로그</h2>
+        </div>
+        <div class="tbl-wrap">
+            <table class="tbl">
+                <thead>
+                <tr>
+                    <th>시각</th>
+                    <th>행위</th>
+                    <th>내용</th>
+                    <th>수행자</th>
+                    <th>결과</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:classappend="${r.id == entry.id} ? 'is-selected'" th:each="r : ${related}">
+                    <td class="num nowrap">
+                        <a th:href="@{/pki/logs/{id}(id=${r.id})}"
+                           th:text="${#temporals.format(r.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-29 10:37:51</a>
+                    </td>
+                    <td class="nowrap" style="font-weight: 600"
+                        th:insert="~{pki/fragments/ui :: label('AuditAction', ${r.action})}">발급
+                    </td>
+                    <td class="secondary" th:text="${r.summary}">secp-0142.charge.example · CSR</td>
+                    <td class="num" th:text="${r.actor}">operator</td>
+                    <td><span th:replace="~{pki/fragments/ui :: auditResult(${r.result})}"></span></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -31,10 +31,15 @@
       th:fragment="profileStatus(status)"
       th:text="${status}">ACTIVE</span>
 
-<!--/* OCSP 결과 배지: GOOD | REVOKED | UNKNOWN | ERROR */-->
-<span class="badge" th:classappend="${result == null} ? 'b-neutral' : (${result.name() == 'GOOD'} ? 'b-ok' : (${result.name() == 'REVOKED'} ? 'b-danger' : (${result.name() == 'ERROR'} ? 'b-warn' : 'b-neutral')))"
-      th:fragment="ocspResult(result)"
-      th:insert="~{pki/fragments/ui :: label('OcspLogResult', ${result})}">GOOD</span>
+<!--/* 감사로그 결과 배지: SUCCESS | FAILURE */-->
+<span class="badge" th:classappend="${result == null} ? 'b-neutral' : (${result.name() == 'SUCCESS'} ? 'b-ok' : 'b-danger')"
+      th:fragment="auditResult(result)"
+      th:insert="~{pki/fragments/ui :: label('AuditResult', ${result})}">성공</span>
+
+<!--/* 감사로그 분류 칩: CERTIFICATE | PROFILE | KMS | OCSP | CRL */-->
+<span class="cat" th:classappend="${category != null} ? |cat-${category.name()}|"
+      th:fragment="auditCategory(category)"
+      th:insert="~{pki/fragments/ui :: label('AuditCategory', ${category})}">인증서</span>
 
 <!--/*
   인증서 목록 정렬 헤더. 같은 필드를 다시 누르면 방향 반전, 다른 필드는 asc부터.

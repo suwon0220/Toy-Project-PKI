@@ -159,7 +159,7 @@
                                           th:field="*{csrPem}"></textarea>
                                 <div class="err" th:errors="*{csrPem}" th:if="${#fields.hasErrors('csrPem')}">CSR 오류
                                 </div>
-                                <div class="hint">CSR 서명(Proof of Possession)을 검증합니다. 아래 Subject·SAN을 비워두면 CSR 값을 사용하고,
+                                <div class="hint">CSR 서명(Proof of Possession)을 검증합니다. 아래 Subject를 비워두면 CSR 값을 사용하고,
                                     입력하면 덮어씁니다.
                                 </div>
                             </div>
@@ -167,55 +167,37 @@
                     </th:block>
                 </section>
 
-                <!-- 3. Subject · SAN -->
+                <!-- 3. Subject : IssueCertificateForm.subjectDn (DistinguishedName) -->
                 <section class="card">
-                    <h2 class="card-title">3. Subject · SAN</h2>
+                    <h2 class="card-title">3. Subject</h2>
                     <div class="grid-4">
                         <div class="field span-2">
-                            <label class="lbl" for="subjectCn">Common Name (CN)<span aria-hidden="true" class="req"
-                                                                                     th:if="${ks != 'CSR'}">*</span></label>
+                            <label class="lbl" for="subjectDn.commonName">Common Name (CN)<span aria-hidden="true" class="req"
+                                                                                        th:if="${ks != 'CSR'}">*</span></label>
                             <input class="f" maxlength="64" placeholder="api.example.com" th:errorclass="is-invalid"
-                                   th:field="*{subjectCn}" type="text">
-                            <div class="err" th:errors="*{subjectCn}" th:if="${#fields.hasErrors('subjectCn')}">CN은
+                                   th:field="*{subjectDn.commonName}" type="text">
+                            <div class="err" th:errors="*{subjectDn.commonName}" th:if="${#fields.hasErrors('subjectDn.commonName')}">CN은
                                 필수입니다.
                             </div>
                         </div>
                         <div class="field">
-                            <label class="lbl" for="subjectO">O</label>
-                            <input class="f" maxlength="64" th:errorclass="is-invalid" th:field="*{subjectO}"
+                            <label class="lbl" for="subjectDn.organization">O</label>
+                            <input class="f" maxlength="64" th:errorclass="is-invalid" th:field="*{subjectDn.organization}"
                                    type="text">
-                            <div class="err" th:errors="*{subjectO}" th:if="${#fields.hasErrors('subjectO')}">O 오류</div>
+                            <div class="err" th:errors="*{subjectDn.organization}" th:if="${#fields.hasErrors('subjectDn.organization')}">O 오류</div>
                         </div>
                         <div class="field">
-                            <label class="lbl" for="subjectC">C</label>
-                            <input class="f" maxlength="2" placeholder="KR" th:errorclass="is-invalid" th:field="*{subjectC}"
+                            <label class="lbl" for="subjectDn.country">C</label>
+                            <input class="f" maxlength="2" placeholder="KR" th:errorclass="is-invalid" th:field="*{subjectDn.country}"
                                    type="text">
-                            <div class="err" th:errors="*{subjectC}" th:if="${#fields.hasErrors('subjectC')}">C 오류</div>
+                            <div class="err" th:errors="*{subjectDn.country}" th:if="${#fields.hasErrors('subjectDn.country')}">C 오류</div>
                         </div>
                         <div class="field span-2">
-                            <label class="lbl" for="subjectOu">OU</label>
-                            <input class="f" maxlength="64" th:errorclass="is-invalid" th:field="*{subjectOu}"
+                            <label class="lbl" for="subjectDn.organizationalUnit">OU</label>
+                            <input class="f" maxlength="64" th:errorclass="is-invalid" th:field="*{subjectDn.organizationalUnit}"
                                    type="text">
-                            <div class="err" th:errors="*{subjectOu}" th:if="${#fields.hasErrors('subjectOu')}">OU 오류
+                            <div class="err" th:errors="*{subjectDn.organizationalUnit}" th:if="${#fields.hasErrors('subjectDn.organizationalUnit')}">OU 오류
                             </div>
-                        </div>
-                        <div class="span-2"></div>
-                        <div class="field span-2">
-                            <label class="lbl" for="sanDns">SAN — DNS</label>
-                            <textarea class="f" placeholder="api.example.com&#10;api-internal.example.com" rows="4" spellcheck="false"
-                                      th:errorclass="is-invalid"
-                                      th:field="*{sanDns}"></textarea>
-                            <div class="err" th:errors="*{sanDns}" th:if="${#fields.hasErrors('sanDns')}">SAN DNS 오류
-                            </div>
-                            <div class="hint">한 줄에 하나. 와일드카드는 프로파일이 허용할 때만.</div>
-                        </div>
-                        <div class="field span-2">
-                            <label class="lbl" for="sanIp">SAN — IP</label>
-                            <textarea class="f" placeholder="10.0.12.4&#10;fd00::12:4" rows="4" spellcheck="false"
-                                      th:errorclass="is-invalid"
-                                      th:field="*{sanIp}"></textarea>
-                            <div class="err" th:errors="*{sanIp}" th:if="${#fields.hasErrors('sanIp')}">SAN IP 오류</div>
-                            <div class="hint">한 줄에 하나. IPv4 / IPv6.</div>
                         </div>
                     </div>
                 </section>

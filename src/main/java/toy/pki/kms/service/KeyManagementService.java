@@ -2,7 +2,7 @@ package toy.pki.kms.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import toy.pki.kms.domain.algorithm.KeyGenerationProfile;
+import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 import toy.pki.kms.domain.key.ManagedKey;
 import toy.pki.kms.domain.parameter.KeyGenerationParameter;
 import toy.pki.kms.infrastructure.jca.KeyGenerator;
@@ -16,7 +16,7 @@ public class KeyManagementService {
 
     private final KeyGeneratorRegistry keyGeneratorRegistry;
 
-    public ManagedKey generate(KeyGenerationProfile profile) throws GeneralSecurityException {
+    public ManagedKey generate(KeyAlgorithmPreset profile) throws GeneralSecurityException {
         KeyGenerationParameter parameter = profile.createParameter();
 
         KeyGenerator generator = keyGeneratorRegistry.get(parameter.getAlgorithm());

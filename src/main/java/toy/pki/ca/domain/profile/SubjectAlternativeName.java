@@ -1,0 +1,4 @@
+package toy.pki.ca.domain.profile;
+
+public class SubjectAlternativeName {
+}
