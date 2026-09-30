@@ -1215,14 +1215,85 @@ fieldset.form-body {
     gap: 20px;
 }
 
-/* 하위 CA일 때만 pathLenConstraint 표시 (JS 없이) */
-.sub-ca-only {
+/* 인증서 종류가 CA일 때만 Basic Constraints 표시 (JS 없이) */
+/* fieldset.plain 의 display: flex 보다 우선하도록 .profile-form 을 붙인다 */
+.profile-form .sub-ca-only {
     display: none;
 }
 
-.profile-form:has(input[name="certTypeForm.certType"][value="CA"]:checked) .sub-ca-only,
-.profile-form:has(input[name="basicConstraintsForm.CA"]:checked) .sub-ca-only {
+.profile-form:has(input[name="certType"][value="CA"]:checked) .sub-ca-only {
     display: flex;
+}
+
+/* 목록이 비었을 때 */
+.pempty {
+    padding: 20px 16px;
+    border: 1px dashed var(--line-field);
+    border-radius: 10px;
+    background: var(--surface-2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+}
+
+.pempty-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+/* 선택된 프로파일 없음 */
+.no-sel {
+    min-width: 0;
+    min-height: 420px;
+    background: var(--surface);
+    border: 1px dashed var(--line-field);
+    border-radius: 10px;
+    padding: 48px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+}
+
+.no-sel-title {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.no-sel-desc {
+    max-width: 440px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--muted);
+}
+
+.no-sel .btn {
+    margin-top: 8px;
+}
+
+/* 첫 프로파일 안내 */
+.intro {
+    padding: 16px 20px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.intro-title {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.intro-desc {
+    font-size: 13px;
+    line-height: 1.55;
 }
 
 /* ---------- kms ---------- */
