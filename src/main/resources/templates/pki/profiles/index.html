@@ -1,96 +1,151 @@
 <!DOCTYPE html>
 <!--/*
-  GET  /pki/profiles                      → 선택 없음 안내
-  GET  /pki/profiles?mode=new             → 빈 신규 폼
-  GET  /pki/profiles?profileId=           → 편집 폼 (profileUpdateForm)
-  GET  /pki/profiles?profileId=&mode=new  → 선택한 프로파일 값으로 신규 폼 (복제, 별칭은 비움)
-  POST /pki/profiles/create               (생성, ProfileCreateForm)
-  POST /pki/profiles/{profileId}/update   (수정, ProfileUpdateForm)
-  POST /pki/profiles/{profileId}/activate · /retire · /delete
-  Model: profileUpdateForm(ProfileUpdateForm) 또는 검증 실패 시 profileCreateForm(ProfileCreateForm),
-         profiles(List<Profile>, 선택. 선택한 프로파일의 status 도 여기서 찾는다), certTypes(CertType[]), keyAlgorithmPresets(KeyAlgorithmPreset[]),
+  ProfileController 현재 구현에 맞춘 화면.
+  GET  /pki/profiles                      → 목록
+  GET  /pki/profiles?mode=new             → 목록 + 새 프로파일 팝업 (빈 profileUpdateForm)
+  GET  /pki/profiles?profileId=           → 목록 + 편집 팝업 (profileUpdateForm = 선택한 프로파일 값)
+  GET  /pki/profiles?profileId=&mode=new  → 목록 + 복제 팝업 (선택한 프로파일 값, 별칭은 비움)
+  POST /pki/profiles/create               (생성, ProfileSaveForm) — 검증 실패 시 같은 뷰 + profileSaveForm
+  POST /pki/profiles/{profileId}/update · /activate · /retire · /delete — 컨트롤러 구현 필요
+  Model: profiles(List<Profile>), profileUpdateForm(GET) 또는 profileSaveForm(POST 검증 실패),
+         certTypes(CertType[]), keyAlgorithmPresets(KeyAlgorithmPreset[]),
          keyUsages(KeyUsageBit[]), standardExtendedKeyUsages(StandardExtendedKeyUsage[])
 
   두 폼 클래스의 모델 이름이 달라 th:object 가 다른 form 두 개를 두고, 입력 영역은 formBody 조각으로 공유한다.
   record 타입(추가 EKU 의 ExtendedKeyUsageRecord, AuthorityInformationAccessProfile 등)은 게터가 없어
   th:field 대신 name / value(checked) 로 바인딩한다.
-  체크박스는 해제 시 값이 전송되지 않으므로 '_' 마커 hidden 을 함께 둔다.
+  검색 · 종류 · 상태 필터와 표 정렬은 pki.js 가 화면에서 처리한다 (컨트롤러 파라미터 없음).
 */-->
 <html lang="ko" th:replace="~{pki/fragments/layout :: shell('인증서 프로파일', ~{::main}, 'profiles')}"
       xmlns:th="http://www.thymeleaf.org">
 <body>
 <main class="stack"
-      th:with="selectedId=${param.profileId != null} ? ${param.profileId[0]} : null,
-               isNew=${profileCreateForm != null or (param.mode != null and param.mode[0] == 'new')},
-               isCopy=${profileCreateForm == null and isNew and selectedId != null},
+      th:with="profileList=${profiles} ?: ${ {} },
+               selectedId=${param.profileId != null} ? ${param.profileId[0]} : null,
+               isNew=${profileSaveForm != null or (param.mode != null and param.mode[0] == 'new')},
+               isCopy=${profileSaveForm == null and isNew and selectedId != null},
                isEdit=${!isNew and selectedId != null and profileUpdateForm != null},
-               selectedStatus=${isEdit and profiles != null} ? ${profiles.^[id.toString() == #vars.selectedId]?.status} : null,
-               noProfiles=${#lists.isEmpty(profiles)}">
+               selected=${selectedId != null} ? ${profileList.^[id.toString() == #vars.selectedId]} : null,
+               noProfiles=${#lists.isEmpty(profileList)}">
 
     <div class="page-head">
         <div class="crumbs">PKI / 인증서 프로파일</div>
         <div class="page-title-row">
             <h1 class="page-title">인증서 프로파일</h1>
+            <a class="btn btn-primary btn-md" th:href="@{/pki/profiles(mode='new')}">+ 새 프로파일</a>
         </div>
     </div>
 
-    <div class="with-nav">
-        <!-- 좌측 프로파일 목록 -->
-        <nav aria-label="프로파일 목록" class="plist">
-            <a class="pitem" th:attr="aria-current=${isEdit and selectedId == pid} ? 'page'"
-               th:each="p : ${profiles}"
-               th:href="@{/pki/profiles(profileId=${pid})}"
-               th:with="pid=${p.id.toString()}">
-                <span class="pitem-top">
-                    <span class="pitem-name" th:text="${p.alias} ?: '(별칭 없음)'">tls-server</span>
-                    <th:block th:if="${p.status != null}">
-                        <span th:replace="~{pki/fragments/ui :: profileStatus(${p.status})}">ACTIVE</span>
-                    </th:block>
-                </span>
-                <span class="pitem-meta"
-                      th:text="|${#strings.substring(pid, 0, 8)} · ${#messages.msgOrNull('enum.CertType.' + p.certType) ?: p.certType}|">3f2a9c1e · Leaf</span>
-            </a>
-            <div class="pempty" th:if="${noProfiles}">
-                <div class="pempty-title">프로파일이 없습니다</div>
-                <div class="hint">아래 [+ 새 프로파일]로 첫 프로파일을 만드세요.</div>
+    <div class="filter-bar" th:unless="${noProfiles}">
+        <div class="field field-sm grow">
+            <label class="lbl" for="pq">검색</label>
+            <input autocomplete="off" class="f" data-filter-input="#profile-list" id="pq" placeholder="프로파일 이름 · 설명"
+                   type="search">
+        </div>
+        <div class="field field-sm w-150">
+            <label class="lbl" for="pst">상태</label>
+            <select class="f" data-filter-field="status" data-filter-target="#profile-list" id="pst">
+                <option value="">전체</option>
+                <option value="DRAFT">DRAFT</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="RETIRED">RETIRED</option>
+            </select>
+        </div>
+        <div class="field field-sm w-150">
+            <label class="lbl" for="pct">종류</label>
+            <select class="f" data-filter-field="certType" data-filter-target="#profile-list" id="pct">
+                <option value="">전체</option>
+                <option th:each="ct : ${certTypes}" th:text="${#messages.msgOrNull('enum.CertType.' + ct) ?: ct}"
+                        th:value="${ct}">Leaf
+                </option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 프로파일 목록: 행 전체가 편집 팝업 링크 -->
+    <section class="card card-flush" data-sort-list="name,asc" id="profile-list">
+        <div class="list-head">
+            <h2 class="card-title">프로파일 목록</h2>
+            <span class="hint" data-filter-count th:text="|${#lists.size(profileList)}개|">0개</span>
+        </div>
+        <div class="glist" style="--cols: minmax(0, 1fr) 140px 140px 160px" th:unless="${noProfiles}">
+            <div class="glist-head">
+                <button class="sort" data-sort-key="name" type="button">이름<span aria-hidden="true" class="arrow">↕</span></button>
+                <button class="sort" data-sort-key="certType" type="button">종류<span aria-hidden="true" class="arrow">↕</span></button>
+                <button class="sort" data-sort-key="status" type="button">상태<span aria-hidden="true" class="arrow">↕</span></button>
+                <button class="sort" data-sort-key="maxValidDays" data-sort-type="number" type="button">최대 유효기간<span
+                        aria-hidden="true" class="arrow">↕</span></button>
             </div>
-            <a class="pnew" th:href="@{/pki/profiles(mode='new')}">+ 새 프로파일</a>
-            <a class="pcopy" th:href="@{/pki/profiles(profileId=${selectedId}, mode='new')}" th:if="${isEdit}">선택한
-                프로파일 복제해서 시작</a>
-        </nav>
+            <div data-sort-body>
+                <a class="glist-row" th:classappend="${isEdit and pid == selectedId} ? 'is-selected'"
+                   th:aria-label="|${name} 프로파일 열기|"
+                   th:attr="data-k-name=${name}, data-k-cert-type=${p.certType}, data-k-status=${p.status},
+                            data-k-max-valid-days=${p.maxValidDays} ?: 0,
+                            data-search=${name + ' ' + (p.description ?: '')}"
+                   th:each="p : ${profileList}"
+                   th:href="@{/pki/profiles(profileId=${pid})}"
+                   th:with="pid=${p.id.toString()}, name=${p.alias} ?: '(별칭 없음)'">
+                    <span class="glist-cell">
+                        <span class="glist-primary" th:text="${name}">tls-server</span>
+                        <span class="glist-sub" th:if="${p.description}" th:text="${p.description}">TLS 서버 인증서</span>
+                    </span>
+                    <span th:text="${#messages.msgOrNull('enum.CertType.' + p.certType) ?: p.certType}">Leaf</span>
+                    <span><span th:replace="~{pki/fragments/ui :: profileStatus(${p.status})}">ACTIVE</span></span>
+                    <code class="glist-mono" th:text="${p.maxValidDays != null} ? |${p.maxValidDays}일| : '—'">397일</code>
+                </a>
+            </div>
+            <div class="empty-state empty-sm" data-filter-empty hidden>
+                <div class="empty-title">조건에 맞는 프로파일이 없습니다</div>
+                <div class="hint">검색어나 상태 · 종류 필터를 바꿔 보세요.</div>
+            </div>
+        </div>
+        <div class="empty-state" th:if="${noProfiles}">
+            <div class="empty-title">프로파일이 없습니다</div>
+            <div class="hint">프로파일이 있어야 인증서를 발급할 수 있어요. 오른쪽 위 [+ 새 프로파일]로 첫 프로파일을 만드세요.</div>
+        </div>
+    </section>
 
-        <!-- 우측: 선택 없음 안내 -->
-        <section aria-label="선택된 프로파일 없음" class="no-sel" th:if="${!isNew and !isEdit}">
-            <h2 class="no-sel-title" th:text="${noProfiles} ? '첫 프로파일을 만들어 주세요' : '프로파일을 선택하세요'">프로파일을
-                선택하세요</h2>
-            <p class="no-sel-desc"
-               th:text="${noProfiles} ? '아직 프로파일이 없어요. 프로파일이 있어야 인증서를 발급할 수 있습니다.' : '왼쪽 목록에서 프로파일을 고르면 여기에서 수정할 수 있어요. 새로 만들려면 아래 버튼을 누르세요.'">
-                왼쪽 목록에서 프로파일을 고르면 여기에서 수정할 수 있어요.</p>
-            <a class="btn btn-primary btn-md" th:href="@{/pki/profiles(mode='new')}">+ 새 프로파일</a>
+    <!--/* 프로파일 팝업: 서버가 th:if 로 그리는 오버레이. 닫기(X) · [취소] 링크로만 닫힌다. */-->
+    <div class="overlay overlay-wide" th:if="${isNew or isEdit}">
+        <section aria-labelledby="profile-dialog-title" aria-modal="true" class="modal modal-wide" role="dialog">
+            <div class="modal-head modal-head-plain">
+                <div class="modal-kicker" id="profile-dialog-title"
+                     th:text="${isEdit} ? '프로파일 편집' : (${isCopy} ? '프로파일 복제' : '새 프로파일')">새 프로파일
+                </div>
+                <span class="grow"></span>
+                <a th:href="@{/pki/profiles(profileId=${selectedId}, mode='new')}" th:if="${isEdit}">이 프로파일 복제해서 새로 만들기</a>
+                <a aria-label="닫기" class="modal-close" th:href="@{/pki/profiles}">
+                    <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" stroke-linecap="round"
+                         stroke-width="2" viewBox="0 0 24 24" width="20">
+                        <line x1="6" x2="18" y1="6" y2="18"></line>
+                        <line x1="18" x2="6" y1="6" y2="18"></line>
+                    </svg>
+                </a>
+            </div>
+
+            <!-- 생성 검증 실패 후 다시 보여주는 신규 폼 -->
+            <form class="modal-body profile-form" method="post" th:action="@{/pki/profiles/create}"
+                  th:if="${profileSaveForm != null}" th:object="${profileSaveForm}">
+                <th:block th:replace="~{pki/profiles/index :: formBody(${profileSaveForm}, true, false, false, ${noProfiles}, null, null)}"></th:block>
+            </form>
+
+            <!-- 신규 · 복제 · 편집 폼 -->
+            <form class="modal-body profile-form" method="post"
+                  th:action="${isEdit} ? @{/pki/profiles/{id}/update(id=${selectedId})} : @{/pki/profiles/create}"
+                  th:if="${profileSaveForm == null}" th:object="${profileUpdateForm}">
+                <th:block th:replace="~{pki/profiles/index :: formBody(${profileUpdateForm}, ${isNew}, ${isCopy}, ${isEdit}, ${noProfiles}, ${selected?.status}, ${selectedId})}"></th:block>
+            </form>
         </section>
-
-        <!-- 우측: 생성 검증 실패 후 다시 보여주는 신규 폼 -->
-        <form class="profile-form stack" method="post" th:action="@{/pki/profiles/create}"
-              th:if="${profileCreateForm != null}" th:object="${profileCreateForm}">
-            <th:block th:replace="~{pki/profiles/index :: formBody(${profileCreateForm}, true, false, false, ${noProfiles}, null)}"></th:block>
-        </form>
-
-        <!-- 우측: 신규 · 복제 · 편집 폼 -->
-        <form class="profile-form stack" method="post"
-              th:action="${isEdit} ? @{/pki/profiles/{id}/update(id=${selectedId})} : @{/pki/profiles/create}"
-              th:if="${profileCreateForm == null and (isNew or isEdit)}" th:object="${profileUpdateForm}">
-            <th:block th:replace="~{pki/profiles/index :: formBody(${profileUpdateForm}, ${isNew}, ${isCopy}, ${isEdit}, ${noProfiles}, ${selectedStatus})}"></th:block>
-        </form>
     </div>
 </main>
 
 <!--/* 폼 입력 영역. 바깥 form 의 th:object 를 그대로 쓴다. */-->
-<th:block th:fragment="formBody(form, isNew, isCopy, isEdit, noProfiles, status)">
+<th:block th:fragment="formBody(form, isNew, isCopy, isEdit, noProfiles, status, profileId)">
     <div th:replace="~{pki/fragments/ui :: globalErrors}"></div>
 
     <div class="intro" role="status" th:if="${isNew and noProfiles}">
         <div class="intro-title">첫 프로파일을 만들어 주세요</div>
-        <div class="intro-desc">프로파일이 없으면 인증서를 발급할 수 없어요.</div>
+        <div class="intro-desc">프로파일이 없으면 인증서를 발급할 수 없어요. DRAFT로 만든 뒤 [활성화]하면 발급 화면에 나타납니다.</div>
     </div>
 
     <section class="card">
@@ -102,21 +157,21 @@
                 <span th:replace="~{pki/fragments/ui :: profileStatus(${status})}">ACTIVE</span>
             </th:block>
         </div>
-        <div class="notice" th:if="${isEdit and status != null and status.name() == 'RETIRED'}">사용 중지(RETIRED)된 프로파일입니다.
-            신규 발급에는 쓸 수 없고, 이미 발급된 인증서에는 영향이 없습니다.
+        <div class="notice" role="note" th:if="${isEdit and status != null and status.name() == 'RETIRED'}">사용 중지(RETIRED)된
+            프로파일입니다. 신규 발급에는 쓸 수 없고, 이미 발급된 인증서에는 영향이 없습니다.
         </div>
         <div class="grid-2">
-            <div class="field">
-                <label class="lbl" for="alias">별칭 <span aria-hidden="true" class="req">*</span></label>
-                <!--/* 복제로 시작하면 원본 별칭을 비운다 */-->
-                <input class="f mono" id="alias" maxlength="50" name="alias" placeholder="tls-server" spellcheck="false"
+            <div class="field span-2">
+                <label class="lbl" for="alias">이름 <span aria-hidden="true" class="req">*</span></label>
+                <!--/* 복제로 시작하면 원본 이름을 비운다 */-->
+                <input class="f" id="alias" maxlength="50" name="alias" placeholder="TLS 서버" required spellcheck="false"
                        th:classappend="${#fields.hasErrors('alias')} ? 'is-invalid'"
                        th:readonly="${isEdit}"
                        th:value="${isCopy} ? '' : ${form.alias}" type="text">
-                <div class="err" th:each="e : ${#fields.errors('alias')}" th:text="${e}">별칭 오류</div>
-                <div class="hint">생성 후 변경할 수 없습니다.</div>
+                <div class="err" th:each="e : ${#fields.errors('alias')}" th:text="${e}">이름 오류</div>
+                <div class="hint">목록·발급 화면에 보이는 이름. 중복 불가, 생성 후 변경할 수 없습니다.</div>
             </div>
-            <div class="field">
+            <div class="field span-2">
                 <label class="lbl" for="description">설명</label>
                 <input class="f" maxlength="200" placeholder="[용도 설명]" th:field="*{description}" type="text">
                 <div class="err" th:each="e : ${#fields.errors('description')}" th:text="${e}">설명 오류</div>
@@ -145,7 +200,8 @@
             <fieldset class="plain">
                 <legend class="lbl">키 알고리즘 <span aria-hidden="true" class="req">*</span></legend>
                 <label class="ck" th:each="a : ${keyAlgorithmPresets}">
-                    <input th:field="*{keyAlgorithms}" th:value="${a}" type="checkbox"><span th:text="${a.displayName}">P256</span>
+                    <input th:field="*{keyAlgorithms}" th:value="${a}" type="checkbox"><span
+                        th:text="${a.algorithm.name() == 'EC'} ? |EC ${a.displayName}| : ${a.displayName}">EC P256</span>
                 </label>
                 <div class="err" th:each="e : ${#fields.errors('keyAlgorithms')}" th:text="${e}">알고리즘 오류</div>
             </fieldset>
@@ -190,11 +246,11 @@
                 <div class="err" th:each="e : ${#fields.errors('extendedKeyUsages')}" th:text="${e}">EKU 오류</div>
                 <label class="ck ck-sep"><input th:field="*{criticalExtendedKeyUsage}" type="checkbox">critical 표시</label>
 
-                <!--/* 추가 EKU: 기존 항목 + 빈 행 1개 (JS 없이 한 번에 하나씩 추가) */-->
-                <div class="stack" style="gap: 8px; margin-top: 8px"
+                <!--/* 추가 EKU: 기존 항목 + 빈 행 1개. [+ 행 추가]는 pki.js 가 마지막 행을 복제해 인덱스를 올린다. */-->
+                <div class="stack" data-repeat style="gap: 8px; margin-top: 8px"
                      th:with="customs=${form.customExtendedKeyUsages} ?: ${ {} }">
                     <div class="lbl">추가 EKU (OID · 이름)</div>
-                    <div class="grid-2" style="gap: 8px"
+                    <div class="grid-2" data-repeat-row style="gap: 8px"
                          th:each="i : ${#numbers.sequence(0, #lists.size(customs))}"
                          th:with="c=${i < #lists.size(customs)} ? ${customs[i]} : null">
                         <input class="f mono" placeholder="1.3.6.1.4.1.…" spellcheck="false"
@@ -207,7 +263,7 @@
                                th:value="${c?.displayName()}" type="text">
                     </div>
                     <div class="err" th:each="e : ${#fields.errors('customExtendedKeyUsages*')}" th:text="${e}">OID 오류</div>
-                    <div class="hint">저장하면 빈 행이 하나 더 생깁니다.</div>
+                    <div><button class="act" data-repeat-add hidden type="button">+ 행 추가</button></div>
                 </div>
             </fieldset>
         </div>
@@ -268,23 +324,23 @@
         </div>
     </section>
 
-    <!--/* 상태 전환·삭제는 같은 form 에서 formaction 으로 보낸다 (form 중첩 불가, JS 없음) */-->
-    <div class="actions">
-        <button class="btn btn-primary btn-md" th:text="${isEdit} ? '저장' : '생성'" type="submit">생성</button>
-        <th:block th:if="${isEdit}" th:with="st=${status != null} ? ${status.name()} : ''">
-            <button class="btn btn-accent-outline btn-md" formnovalidate
-                    th:formaction="@{/pki/profiles/{id}/activate(id=${param.profileId[0]})}" th:if="${st == 'DRAFT'}"
-                    type="submit">활성화
-            </button>
-            <span class="grow"></span>
+    <!--/* 버튼은 오른쪽 정렬: 위험한 동작 → 상태 변경 → 취소 → 주 버튼. 상태 전환·삭제는 formaction 으로 보낸다. */-->
+    <div class="actions actions-end" th:with="st=${status != null} ? ${status.name()} : ''">
+        <th:block th:if="${isEdit}">
             <button class="btn btn-danger-outline btn-md" formnovalidate
-                    th:formaction="@{/pki/profiles/{id}/retire(id=${param.profileId[0]})}" th:if="${st == 'ACTIVE'}"
+                    th:formaction="@{/pki/profiles/{id}/delete(id=${profileId})}" type="submit">삭제
+            </button>
+            <button class="btn btn-danger-outline btn-md" formnovalidate
+                    th:formaction="@{/pki/profiles/{id}/retire(id=${profileId})}" th:if="${st == 'ACTIVE'}"
                     type="submit">사용 중지 (RETIRED)
             </button>
-            <button class="btn btn-danger-outline btn-md" formnovalidate
-                    th:formaction="@{/pki/profiles/{id}/delete(id=${param.profileId[0]})}" type="submit">삭제
+            <button class="btn btn-accent-outline btn-md" formnovalidate
+                    th:formaction="@{/pki/profiles/{id}/activate(id=${profileId})}" th:if="${st == 'DRAFT'}"
+                    type="submit">활성화
             </button>
         </th:block>
+        <a class="btn btn-outline btn-md" th:href="@{/pki/profiles}">취소</a>
+        <button class="btn btn-primary btn-md" th:text="${isEdit} ? '수정' : '생성'" type="submit">생성</button>
     </div>
 </th:block>
 </body>

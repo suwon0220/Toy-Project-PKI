@@ -7,8 +7,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum SignatureAlgorithm {
     RSA("RSA"),
-    ECDSA("ECDSA");
-//    EDDSA("EdDSA");
+    DSA("DSA"),
+    ECDSA("ECDSA"),
+    EDDSA("EdDSA");
 
     private final String jcaName;
 }

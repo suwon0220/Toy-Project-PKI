@@ -1,237 +1,243 @@
 <!DOCTYPE html>
 <!--/*
-  GET  /pki/certificates/new?keySource=&caId=   → pki/certificates/issue
-  POST /pki/certificates (multipart)             → 검증 실패 시 같은 뷰
-  Model: issueForm, caList, profiles, keySourceLabel, keyAlgorithms(SERVER_GENERATED), kmsKeys(KMS)
+  인증서 발급 팝업 조각 — pki/certificates/list 가 issueForm 이 있을 때 th:replace 로 넣는다. 컨트롤러 구현 필요.
+  GET  /pki/certificates?mode=issue&signMode=CA_SIGNED|SELF_SIGNED&keySource=CSR|KMS|NEW&caId=
+  POST /pki/certificates (multipart)  → 검증 실패 시 pki/certificates/list 를 팝업이 열린 채로 반환
+  Model: issueForm(CertificateIssueForm), caList, profiles(List<CertProfileView>), keySourceLabel,
+         keyAlgorithms(keySource=NEW), kmsKeys(KMS)
+  발급 방식 · 키 소스 탭은 GET 링크로 전환한다. 자체 서명에서는 CSR 업로드를 쓸 수 없다.
 */-->
-<html lang="ko" th:replace="~{pki/fragments/layout :: shell('인증서 발급', ~{::main}, 'issue')}"
-      xmlns:th="http://www.thymeleaf.org">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <body>
-<main class="stack" th:with="ks=${issueForm.keySource != null} ? ${issueForm.keySource.name()} : 'CSR'">
-
-    <div class="page-head">
-        <div class="crumbs">PKI / <a th:href="@{/pki/certificates}">인증서</a> / 발급</div>
-        <div class="page-title-row">
-            <h1 class="page-title">인증서 발급</h1>
+<div class="overlay overlay-wide" th:fragment="dialog"
+     th:with="sm=${issueForm.signMode != null} ? ${issueForm.signMode.name()} : 'CA_SIGNED',
+              isSelf=${sm == 'SELF_SIGNED'},
+              ksRaw=${issueForm.keySource != null} ? ${issueForm.keySource.name()} : (${isSelf} ? 'KMS' : 'CSR'),
+              ks=${isSelf and ksRaw == 'CSR'} ? 'KMS' : ${ksRaw}">
+    <section aria-labelledby="issue-title" aria-modal="true" class="modal modal-xl" role="dialog">
+        <div class="modal-head modal-head-plain">
+            <h2 class="modal-title" id="issue-title">새 인증서 발급</h2>
+            <span class="grow"></span>
+            <a aria-label="닫기" class="modal-close" th:href="@{/pki/certificates}">
+                <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" stroke-linecap="round"
+                     stroke-width="2" viewBox="0 0 24 24" width="20">
+                    <line x1="6" x2="18" y1="6" y2="18"></line>
+                    <line x1="18" x2="6" y1="6" y2="18"></line>
+                </svg>
+            </a>
         </div>
-    </div>
 
-    <form class="stack" enctype="multipart/form-data" method="post" th:action="@{/pki/certificates}"
-          th:object="${issueForm}">
-        <input th:field="*{keySource}" type="hidden">
+        <form class="modal-body" enctype="multipart/form-data" method="post" th:action="@{/pki/certificates}"
+              th:object="${issueForm}">
+            <input name="signMode" th:value="${sm}" type="hidden">
+            <input name="keySource" th:value="${ks}" type="hidden">
 
-        <div th:replace="~{pki/fragments/ui :: globalErrors}"></div>
+            <div th:replace="~{pki/fragments/ui :: globalErrors}"></div>
 
-        <div class="with-aside">
-            <div class="stack">
+            <div class="with-aside">
+                <div class="stack" style="gap: 16px">
 
-                <!-- 1. 발급 CA · 프로파일 -->
-                <section class="card">
-                    <h2 class="card-title">1. 발급 CA · 프로파일</h2>
-                    <div class="grid-2">
-                        <div class="field">
-                            <label class="lbl" for="caId">발급 CA <span aria-hidden="true" class="req">*</span></label>
-                            <select class="f" required th:errorclass="is-invalid" th:field="*{caId}">
-                                <option value="">선택하세요</option>
-                                <option th:each="ca : ${caList}" th:text="${ca.name}" th:value="${ca.caId}">Issuing CA —
-                                    TLS
-                                </option>
-                            </select>
-                            <div class="err" th:errors="*{caId}" th:if="${#fields.hasErrors('caId')}">CA를 선택하세요.</div>
+                    <!-- 1. 발급 방식 · 프로파일 -->
+                    <section class="card">
+                        <div class="card-head">
+                            <h2 class="card-title">1. 발급 방식 · 프로파일</h2>
+                            <nav aria-label="발급 방식" class="seg">
+                                <a th:attr="aria-current=${!isSelf} ? 'true'"
+                                   th:href="@{/pki/certificates(mode='issue', signMode='CA_SIGNED', keySource=${ks}, caId=*{caId})}">CA가
+                                    서명</a>
+                                <a th:attr="aria-current=${isSelf} ? 'true'"
+                                   th:href="@{/pki/certificates(mode='issue', signMode='SELF_SIGNED', keySource=${ks == 'CSR'} ? 'KMS' : ${ks})}">자체
+                                    서명 (Self-signed)</a>
+                            </nav>
                         </div>
-                        <div class="field">
-                            <label class="lbl" for="profileId">인증서 프로파일 <span aria-hidden="true"
-                                                                              class="req">*</span></label>
-                            <select class="f" required th:errorclass="is-invalid" th:field="*{profileId}">
-                                <option value="">선택하세요</option>
-                                <option th:each="p : ${profiles}" th:text="${p.name}" th:value="${p.profileId}">TLS 서버
-                                    (serverAuth)
-                                </option>
-                            </select>
-                            <div class="err" th:errors="*{profileId}" th:if="${#fields.hasErrors('profileId')}">프로파일
-                                오류
+                        <div class="grid-2">
+                            <div class="field" th:unless="${isSelf}">
+                                <label class="lbl" for="caId">발급 CA <span aria-hidden="true" class="req">*</span></label>
+                                <select class="f" required th:errorclass="is-invalid" th:field="*{caId}">
+                                    <option value="">선택하세요</option>
+                                    <option th:each="ca : ${caList}" th:text="${ca.name}" th:value="${ca.caId}">Issuing CA — TLS</option>
+                                </select>
+                                <div class="err" th:errors="*{caId}" th:if="${#fields.hasErrors('caId')}">CA를 선택하세요.</div>
                             </div>
-                            <div class="hint" th:unless="${#fields.hasErrors('profileId')}">CA와 맞지 않는 조합은 제출 시 서버가
-                                거부합니다.
+                            <div class="field" th:if="${isSelf}">
+                                <div class="lbl">발급자 (Issuer)</div>
+                                <div class="info-box">Subject와 같음 — 이 인증서의 키로 스스로 서명합니다. 주로 Root CA를 만들 때 씁니다.</div>
+                                <label class="ck"><input th:field="*{registerAsCa}" type="checkbox">발급 후 CA로 등록</label>
+                                <div class="err" th:errors="*{registerAsCa}" th:if="${#fields.hasErrors('registerAsCa')}">CA 등록 오류</div>
+                                <div class="hint">CA 프로파일일 때만. 등록하면 발급 CA 목록에 나타나 하위 인증서를 발급할 수 있어요.</div>
                             </div>
-                        </div>
-                        <div class="field">
-                            <label class="lbl" for="validityDays">유효기간(일) <span aria-hidden="true" class="req">*</span></label>
-                            <input class="f" min="1" required th:errorclass="is-invalid" th:field="*{validityDays}"
-                                   type="number">
-                            <div class="err" th:errors="*{validityDays}" th:if="${#fields.hasErrors('validityDays')}">
-                                유효기간 오류
-                            </div>
-                            <div class="hint" th:unless="${#fields.hasErrors('validityDays')}">프로파일의 최대 유효기간을 넘으면 서버에서
-                                거부합니다.
-                            </div>
-                        </div>
-                        <div class="field">
-                            <label class="lbl" for="notBefore">시작 시각 (선택)</label>
-                            <input class="f" th:errorclass="is-invalid" th:field="*{notBefore}" type="datetime-local">
-                            <div class="err" th:errors="*{notBefore}" th:if="${#fields.hasErrors('notBefore')}">시작 시각
-                                오류
-                            </div>
-                            <div class="hint" th:unless="${#fields.hasErrors('notBefore')}">비워두면 발급 시각. 과거 시점은 허용하지
-                                않습니다.
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 2. 키 소스: 탭은 GET 링크로 전환 -->
-                <section class="card">
-                    <div class="card-head">
-                        <h2 class="card-title">2. 키 소스</h2>
-                        <nav aria-label="키 소스" class="seg">
-                            <a th:attr="aria-current=${ks == 'CSR'} ? 'true'"
-                               th:href="@{/pki/certificates/new(keySource='CSR', caId=*{caId})}">CSR 업로드</a>
-                            <a th:attr="aria-current=${ks == 'KMS'} ? 'true'"
-                               th:href="@{/pki/certificates/new(keySource='KMS', caId=*{caId})}">KMS 키 사용</a>
-                            <a th:attr="aria-current=${ks == 'SERVER_GENERATED'} ? 'true'"
-                               th:href="@{/pki/certificates/new(keySource='SERVER_GENERATED', caId=*{caId})}">서버 생성 (PKCS#12)</a>
-                        </nav>
-                    </div>
-                    <div class="err" th:errors="*{keySource}" th:if="${#fields.hasErrors('keySource')}">키 소스 오류</div>
-
-                    <th:block th:switch="${ks}">
-                        <div class="stack" th:case="'KMS'">
                             <div class="field">
-                                <label class="lbl" for="kmsKeyId">KMS 키 <span aria-hidden="true"
-                                                                              class="req">*</span></label>
+                                <label class="lbl" for="profileId">인증서 프로파일 <span aria-hidden="true" class="req">*</span></label>
+                                <select class="f" required th:errorclass="is-invalid" th:field="*{profileId}">
+                                    <option value="">선택하세요</option>
+                                    <option th:each="p : ${profiles}" th:text="${p.name}" th:value="${p.profileId}">TLS 서버</option>
+                                </select>
+                                <div class="err" th:errors="*{profileId}" th:if="${#fields.hasErrors('profileId')}">프로파일 오류</div>
+                                <div class="hint" th:unless="${#fields.hasErrors('profileId')}"
+                                     th:text="${isSelf} ? 'Root CA를 만들려면 CA 프로파일을 고르세요. 유효기간은 프로파일 상한만 적용됩니다.' : 'CA와 맞지 않는 조합은 제출 시 서버가 거부합니다.'">
+                                    CA와 맞지 않는 조합은 제출 시 서버가 거부합니다.
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="validityDays">유효기간(일) <span aria-hidden="true" class="req">*</span></label>
+                                <input class="f" min="1" required th:errorclass="is-invalid" th:field="*{validityDays}" type="number">
+                                <div class="err" th:errors="*{validityDays}" th:if="${#fields.hasErrors('validityDays')}">유효기간 오류</div>
+                                <div class="hint" th:unless="${#fields.hasErrors('validityDays')}">프로파일 상한을 넘으면 서버에서 거부합니다.</div>
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="notBefore">시작 시각 (선택)</label>
+                                <input class="f" th:errorclass="is-invalid" th:field="*{notBefore}" type="datetime-local">
+                                <div class="err" th:errors="*{notBefore}" th:if="${#fields.hasErrors('notBefore')}">시작 시각 오류</div>
+                                <div class="hint" th:unless="${#fields.hasErrors('notBefore')}">비워두면 발급 시각. 과거 시점은 허용하지 않습니다.</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 2. 키 소스: 탭은 GET 링크로 전환 -->
+                    <section class="card">
+                        <div class="card-head">
+                            <h2 class="card-title">2. 키 소스</h2>
+                            <nav aria-label="키 소스" class="seg">
+                                <a th:attr="aria-current=${ks == 'CSR'} ? 'true'"
+                                   th:href="@{/pki/certificates(mode='issue', signMode=${sm}, keySource='CSR', caId=*{caId})}"
+                                   th:unless="${isSelf}">CSR 업로드</a>
+                                <span aria-disabled="true" class="seg-off" th:if="${isSelf}" title="자체 서명에는 쓸 수 없음">CSR 업로드</span>
+                                <a th:attr="aria-current=${ks == 'KMS'} ? 'true'"
+                                   th:href="@{/pki/certificates(mode='issue', signMode=${sm}, keySource='KMS', caId=*{caId})}">KMS 키
+                                    사용</a>
+                                <a th:attr="aria-current=${ks == 'NEW'} ? 'true'"
+                                   th:href="@{/pki/certificates(mode='issue', signMode=${sm}, keySource='NEW', caId=*{caId})}">서버
+                                    생성 (PKCS#12)</a>
+                            </nav>
+                        </div>
+                        <div class="hint" th:if="${isSelf}">자체 서명은 서버가 개인키로 직접 서명해야 해서 CSR 업로드는 쓸 수 없어요. KMS 키 또는 서버 생성을
+                            고르세요.
+                        </div>
+                        <div class="err" th:errors="*{keySource}" th:if="${#fields.hasErrors('keySource')}">키 소스 오류</div>
+
+                        <th:block th:switch="${ks}">
+                            <div class="field" th:case="'KMS'">
+                                <label class="lbl" for="kmsKeyId">KMS 키 <span aria-hidden="true" class="req">*</span></label>
                                 <select class="f" th:errorclass="is-invalid" th:field="*{kmsKeyId}">
                                     <option value="">선택하세요</option>
-                                    <option th:each="k : ${kmsKeys}" th:text="|${k.alias} · ${#messages.msgOrNull('enum.KeyAlgorithm.' + k.algorithm) ?: k.algorithm}|"
-                                            th:value="${k.keyId}">
-                                        api-tls-server · EC P-256
+                                    <option th:each="k : ${kmsKeys}"
+                                            th:text="|${k.displayName} ·${#messages.msgOrNull('enum.KeyAlgorithm.' + k.algorithm) ?: k.algorithm}|"
+                                            th:value="${k.keyId}">api-tls-server · EC P-256
                                     </option>
                                 </select>
-                                <div class="err" th:errors="*{kmsKeyId}" th:if="${#fields.hasErrors('kmsKeyId')}">KMS 키
-                                    오류
+                                <div class="err" th:errors="*{kmsKeyId}" th:if="${#fields.hasErrors('kmsKeyId')}">KMS 키 오류</div>
+                                <div class="hint" th:if="${#lists.isEmpty(kmsKeys)}">등록된 키가 없습니다. <a th:href="@{/pki/kms}">키
+                                    관리</a>에서 먼저 키를 만드세요.
                                 </div>
-                                <div class="hint" th:if="${#lists.isEmpty(kmsKeys)}">
-                                    등록된 KMS 키가 없습니다. <a th:href="@{/pki/kms}">KMS 키 화면</a>에서 먼저 키를 만드세요.
-                                </div>
-                                <div class="hint">내장 KMS가 CSR을 자체 서명해 POP를 확보합니다. 개인키는 KMS 밖으로 나오지 않습니다.</div>
+                                <div class="hint">내장 KMS의 키로 CSR을 자체 서명해 POP를 확보하며, 개인키는 KMS 밖으로 나오지 않습니다.</div>
                             </div>
-                        </div>
 
-                        <div class="grid-2" th:case="'SERVER_GENERATED'">
-                            <div class="field">
-                                <label class="lbl" for="keyAlgorithm">키 알고리즘 <span aria-hidden="true"
-                                                                                   class="req">*</span></label>
-                                <select class="f" th:errorclass="is-invalid" th:field="*{keyAlgorithm}">
-                                    <option th:each="a : ${keyAlgorithms}" th:text="${#messages.msgOrNull('enum.KeyAlgorithm.' + a) ?: a}"
-                                            th:value="${a}">EC P-256
-                                    </option>
-                                </select>
-                                <div class="err" th:errors="*{keyAlgorithm}"
-                                     th:if="${#fields.hasErrors('keyAlgorithm')}">알고리즘 오류
+                            <div class="grid-2" th:case="'NEW'">
+                                <div class="field">
+                                    <label class="lbl" for="keyAlgorithm">키 알고리즘 <span aria-hidden="true" class="req">*</span></label>
+                                    <select class="f" th:errorclass="is-invalid" th:field="*{keyAlgorithm}">
+                                        <option th:each="a : ${keyAlgorithms}" th:text="${#messages.msgOrNull('enum.KeyAlgorithm.' + a) ?: a}"
+                                                th:value="${a}">EC P-256
+                                        </option>
+                                    </select>
+                                    <div class="err" th:errors="*{keyAlgorithm}" th:if="${#fields.hasErrors('keyAlgorithm')}">알고리즘 오류</div>
+                                </div>
+                                <div class="field">
+                                    <label class="lbl" for="p12Password">PKCS#12 비밀번호 <span aria-hidden="true" class="req">*</span></label>
+                                    <input autocomplete="new-password" class="f" minlength="12" placeholder="12자 이상"
+                                           th:errorclass="is-invalid" th:field="*{p12Password}" type="password">
+                                    <div class="err" th:errors="*{p12Password}" th:if="${#fields.hasErrors('p12Password')}">비밀번호 오류</div>
+                                </div>
+                                <div class="hint span-2">발급 직후 PKCS#12 파일을 한 번만 내려받을 수 있습니다(5분 유효). 서버는 생성한 개인키를 보관하지
+                                    않습니다.
                                 </div>
                             </div>
-                            <div class="field">
-                                <label class="lbl" for="p12Password">PKCS#12 비밀번호 <span aria-hidden="true"
-                                                                                        class="req">*</span></label>
-                                <input autocomplete="new-password" class="f" minlength="12" placeholder="12자 이상"
-                                       th:errorclass="is-invalid" th:field="*{p12Password}" type="password">
-                                <div class="err" th:errors="*{p12Password}" th:if="${#fields.hasErrors('p12Password')}">
-                                    비밀번호 오류
-                                </div>
-                            </div>
-                            <div class="hint span-2">발급 직후 PKCS#12 파일을 한 번만 내려받을 수 있습니다(5분 유효). 서버는 생성한 개인키를 보관하지
-                                않습니다.
-                            </div>
-                        </div>
 
-                        <div class="stack" th:case="*">
-                            <div class="field">
-                                <label class="lbl" for="csrFile">CSR 파일 (.csr, .pem, .der)</label>
-                                <input accept=".csr,.pem,.der,.req" class="f" id="csrFile" name="csrFile" th:classappend="${#fields.hasErrors('csrFile')} ? 'is-invalid'"
-                                       type="file">
-                                <div class="err" th:errors="*{csrFile}" th:if="${#fields.hasErrors('csrFile')}">CSR 파일
-                                    오류
+                            <div class="stack" style="gap: 14px" th:case="*">
+                                <div class="field">
+                                    <label class="lbl" for="csrFile">CSR 파일 (.csr, .pem)</label>
+                                    <input accept=".csr,.pem,.der,.req" class="f" id="csrFile" name="csrFile"
+                                           th:classappend="${#fields.hasErrors('csrFile')} ? 'is-invalid'" type="file">
+                                    <div class="err" th:errors="*{csrFile}" th:if="${#fields.hasErrors('csrFile')}">CSR 파일 오류</div>
+                                </div>
+                                <div class="field">
+                                    <label class="lbl" for="csrPEM">또는 PEM 붙여넣기</label>
+                                    <textarea class="f" placeholder="-----BEGIN CERTIFICATE REQUEST-----" rows="5" spellcheck="false"
+                                              th:errorclass="is-invalid" th:field="*{csrPEM}"></textarea>
+                                    <div class="err" th:errors="*{csrPEM}" th:if="${#fields.hasErrors('csrPEM')}">CSR 오류</div>
+                                    <div class="hint">CSR 서명(Proof of Possession)을 검증합니다. 아래 Subject를 비워두면 CSR 값을 사용하고, 입력하면
+                                        덮어씁니다.
+                                    </div>
                                 </div>
                             </div>
-                            <div class="field">
-                                <label class="lbl" for="csrPem">또는 PEM 붙여넣기</label>
-                                <textarea class="f" placeholder="-----BEGIN CERTIFICATE REQUEST-----" rows="6" spellcheck="false"
-                                          th:errorclass="is-invalid"
-                                          th:field="*{csrPem}"></textarea>
-                                <div class="err" th:errors="*{csrPem}" th:if="${#fields.hasErrors('csrPem')}">CSR 오류
-                                </div>
-                                <div class="hint">CSR 서명(Proof of Possession)을 검증합니다. 아래 Subject를 비워두면 CSR 값을 사용하고,
-                                    입력하면 덮어씁니다.
-                                </div>
-                            </div>
-                        </div>
-                    </th:block>
-                </section>
+                        </th:block>
+                    </section>
 
-                <!-- 3. Subject : IssueCertificateForm.subjectDn (DistinguishedName) -->
-                <section class="card">
-                    <h2 class="card-title">3. Subject</h2>
-                    <div class="grid-4">
-                        <div class="field span-2">
-                            <label class="lbl" for="subjectDn.commonName">Common Name (CN)<span aria-hidden="true" class="req"
-                                                                                        th:if="${ks != 'CSR'}">*</span></label>
-                            <input class="f" maxlength="64" placeholder="api.example.com" th:errorclass="is-invalid"
-                                   th:field="*{subjectDn.commonName}" type="text">
-                            <div class="err" th:errors="*{subjectDn.commonName}" th:if="${#fields.hasErrors('subjectDn.commonName')}">CN은
-                                필수입니다.
+                    <!-- 3. Subject : CertificateIssueForm.subjectDn (DistinguishedName) -->
+                    <section class="card">
+                        <h2 class="card-title">3. Subject</h2>
+                        <div class="grid-4">
+                            <div class="field span-2">
+                                <label class="lbl" for="subjectDn.commonName">Common Name (CN)<span aria-hidden="true" class="req"
+                                                                                                th:if="${ks != 'CSR'}">*</span></label>
+                                <input class="f" maxlength="64" placeholder="api.example.com" th:errorclass="is-invalid"
+                                       th:field="*{subjectDn.commonName}" type="text">
+                                <div class="err" th:errors="*{subjectDn.commonName}" th:if="${#fields.hasErrors('subjectDn.commonName')}">CN은
+                                    필수입니다.
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="subjectDn.organization">O</label>
+                                <input class="f" maxlength="64" placeholder="[조직명]" th:errorclass="is-invalid"
+                                       th:field="*{subjectDn.organization}" type="text">
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="subjectDn.country">C</label>
+                                <input class="f" maxlength="2" placeholder="KR" th:errorclass="is-invalid"
+                                       th:field="*{subjectDn.country}" type="text">
+                                <div class="err" th:errors="*{subjectDn.country}" th:if="${#fields.hasErrors('subjectDn.country')}">C 오류</div>
+                            </div>
+                            <div class="field span-2">
+                                <label class="lbl" for="subjectDn.organizationalUnit">OU</label>
+                                <input class="f" maxlength="128" placeholder="[부서명]" th:errorclass="is-invalid"
+                                       th:field="*{subjectDn.organizationalUnit}" type="text">
                             </div>
                         </div>
-                        <div class="field">
-                            <label class="lbl" for="subjectDn.organization">O</label>
-                            <input class="f" maxlength="64" th:errorclass="is-invalid" th:field="*{subjectDn.organization}"
-                                   type="text">
-                            <div class="err" th:errors="*{subjectDn.organization}" th:if="${#fields.hasErrors('subjectDn.organization')}">O 오류</div>
-                        </div>
-                        <div class="field">
-                            <label class="lbl" for="subjectDn.country">C</label>
-                            <input class="f" maxlength="2" placeholder="KR" th:errorclass="is-invalid" th:field="*{subjectDn.country}"
-                                   type="text">
-                            <div class="err" th:errors="*{subjectDn.country}" th:if="${#fields.hasErrors('subjectDn.country')}">C 오류</div>
-                        </div>
-                        <div class="field span-2">
-                            <label class="lbl" for="subjectDn.organizationalUnit">OU</label>
-                            <input class="f" maxlength="64" th:errorclass="is-invalid" th:field="*{subjectDn.organizationalUnit}"
-                                   type="text">
-                            <div class="err" th:errors="*{subjectDn.organizationalUnit}" th:if="${#fields.hasErrors('subjectDn.organizationalUnit')}">OU 오류
+                    </section>
+                </div>
+
+                <!-- 우측 발급 카드 -->
+                <aside class="sticky">
+                    <section class="card">
+                        <h2 class="card-title">발급</h2>
+                        <dl class="dl" style="grid-template-columns: 72px minmax(0, 1fr)">
+                            <dt>발급 방식</dt>
+                            <dd style="font-weight: 600" th:text="${isSelf} ? '자체 서명' : 'CA가 서명'">CA가 서명</dd>
+                            <dt>키 소스</dt>
+                            <dd style="font-weight: 600" th:text="${keySourceLabel} ?: (${ks == 'KMS'} ? 'KMS 키 사용' : (${ks == 'NEW'} ? '서버 생성 (PKCS#12)' : 'CSR 업로드'))">CSR 업로드</dd>
+                        </dl>
+                        <div class="divided">
+                            <div class="hint" style="font-weight: 600">프로파일 정책 — 확장은 프로파일이 고정합니다</div>
+                            <div class="policy" th:unless="${#lists.isEmpty(profiles)}">
+                                <th:block th:each="p : ${profiles}">
+                                    <div>
+                                        <span th:text="${p.name}">TLS 서버</span>
+                                        <div class="kv" th:text="${p.kuEkuSummary}">serverAuth · digitalSignature</div>
+                                    </div>
+                                    <div class="days" th:text="|${p.maxValidityDays}일|">397일</div>
+                                </th:block>
+                            </div>
+                            <div class="hint" th:if="${#lists.isEmpty(profiles)}">
+                                ACTIVE 프로파일이 없습니다. <a th:href="@{/pki/profiles}">프로파일 화면</a>에서 활성화하세요.
                             </div>
                         </div>
-                    </div>
-                </section>
+                        <button class="btn btn-primary btn-lg btn-block" type="submit">인증서 발급</button>
+                        <a class="btn btn-outline btn-md btn-block" th:href="@{/pki/certificates}">취소</a>
+                    </section>
+                </aside>
             </div>
-
-            <!-- 우측 발급 카드 -->
-            <aside class="sticky">
-                <section class="card">
-                    <h2 class="card-title">발급</h2>
-                    <dl class="dl" style="grid-template-columns: 72px minmax(0, 1fr)">
-                        <dt>키 소스</dt>
-                        <dd style="font-weight: 600" th:text="${keySourceLabel}">CSR 업로드</dd>
-                    </dl>
-                    <div class="divided">
-                        <div class="hint" style="font-weight: 600">프로파일 정책 — 확장은 프로파일이 고정합니다</div>
-                        <div class="policy" th:unless="${#lists.isEmpty(profiles)}">
-                            <th:block th:each="p : ${profiles}">
-                                <div>
-                                    <span th:text="${p.name}">TLS 서버</span>
-                                    <div class="kv" th:text="${p.kuEkuSummary}">serverAuth · digitalSignature</div>
-                                </div>
-                                <div class="days" th:text="|${p.maxValidityDays}일|">397일</div>
-                            </th:block>
-                        </div>
-                        <div class="hint" th:if="${#lists.isEmpty(profiles)}">
-                            ACTIVE 프로파일이 없습니다. <a th:href="@{/pki/profiles}">프로파일 화면</a>에서 활성화하세요.
-                        </div>
-                    </div>
-                    <button class="btn btn-primary btn-lg btn-block" type="submit">인증서 발급</button>
-                    <a class="btn btn-outline btn-md btn-block" th:href="@{/pki/certificates}">취소</a>
-                </section>
-            </aside>
-        </div>
-    </form>
-</main>
+        </form>
+    </section>
+</div>
 </body>
 </html>

@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <!--/*
-  GET /pki/logs?category=&from=&to=&q=&result=&includeProbe=&page=&size=  → pki/logs/list
-  Model: page(Page<AuditLogEntry>, occurredAt 내림차순), filter(AuditLogFilter),
+  전체 로그. 컨트롤러 구현 필요.
+  GET /pki/logs?category=&from=&to=&q=&result=&includeProbe=&page=&size=&sort=  → pki/logs/list
+  Model: page(Page<AuditLogEntry>), sortField, sortDir (기본 occurredAt,desc), filter(AuditLogFilter),
          categories(AuditCategory[]), health(OcspHealthSummary)
-  from·to가 비면 최근 24시간. 분류 탭 · 페이지 링크는 필터 값을 그대로 유지한다.
+  from·to가 비면 최근 24시간. 분류 탭 · 정렬 · 페이지 링크는 필터 값을 그대로 유지한다.
 */-->
 <html lang="ko" th:replace="~{pki/fragments/layout :: shell('전체 로그', ~{::main}, 'logs')}"
       xmlns:th="http://www.thymeleaf.org">
 <body>
-<main class="stack">
+<main class="stack" th:with="sortParam=${sortField + ',' + sortDir}">
 
     <div class="page-head">
         <div class="crumbs">PKI / 전체 로그</div>
@@ -28,16 +29,17 @@
     <!-- 분류 탭: GET ?category= (null = 전체) -->
     <nav aria-label="분류" class="tabs">
         <a th:attr="aria-current=${filter.category == null} ? 'page'"
-           th:href="@{/pki/logs(from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}">전체</a>
+           th:href="@{/pki/logs(sort=${sortParam}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}">전체</a>
         <a th:attr="aria-current=${filter.category == c} ? 'page'"
            th:each="c : ${categories}"
-           th:href="@{/pki/logs(category=${c}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}"
+           th:href="@{/pki/logs(category=${c}, sort=${sortParam}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}"
            th:insert="~{pki/fragments/ui :: label('AuditCategory', ${c})}">인증서</a>
     </nav>
 
     <div class="filter-bar">
         <form method="get" role="search" th:action="@{/pki/logs}" th:object="${filter}">
             <input th:field="*{category}" type="hidden">
+            <input name="sort" th:value="${sortParam}" type="hidden">
             <div class="field field-sm w-190">
                 <label class="lbl" for="from">시작</label>
                 <input class="f" th:field="*{from}" type="datetime-local">
@@ -48,7 +50,7 @@
             </div>
             <div class="field field-sm grow">
                 <label class="lbl" for="q">대상 검색</label>
-                <input class="f" placeholder="시리얼 · 프로파일 ID · 키 별칭" spellcheck="false" th:field="*{q}" type="search">
+                <input class="f" placeholder="시리얼 · 프로파일 이름 · 키 별칭" spellcheck="false" th:field="*{q}" type="search">
             </div>
             <div class="field field-sm w-140">
                 <label class="lbl" for="result">결과</label>
@@ -64,57 +66,49 @@
     </div>
 
     <section class="card card-flush">
-        <div class="tbl-wrap">
-            <table class="tbl">
-                <thead>
-                <tr>
-                    <th aria-sort="descending">시각 ▼</th>
-                    <th>분류</th>
-                    <th>행위</th>
-                    <th>대상 · 내용</th>
-                    <th>수행자</th>
-                    <th>결과</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="e : ${page.content}">
-                    <td class="num nowrap">
-                        <a th:href="@{/pki/logs/{id}(id=${e.id})}"
-                           th:text="${#temporals.format(e.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-29 10:42:18</a>
-                    </td>
-                    <td><span th:replace="~{pki/fragments/ui :: auditCategory(${e.category})}"></span></td>
-                    <td class="nowrap" style="font-weight: 600"
-                        th:insert="~{pki/fragments/ui :: label('AuditAction', ${e.action})}">발급
-                    </td>
-                    <td style="max-width: 0; width: 100%">
-                        <div class="mono ellipsis" th:text="${e.targetId} ?: '—'">52e1ab88c0f731</div>
-                        <div class="secondary ellipsis" th:text="${e.summary}">keyCompromise(1) · CRL 즉시 발행</div>
-                    </td>
-                    <td class="num" th:text="${e.actor}">operator</td>
-                    <td>
-                        <span th:replace="~{pki/fragments/ui :: auditResult(${e.result})}"></span>
-                        <span class="tag" th:if="${e.probe}" title="자동 점검 요청">점검</span>
-                    </td>
-                </tr>
-                <tr th:if="${page.empty}">
-                    <td class="empty" colspan="6">조건에 맞는 로그가 없습니다. 기간을 비우면 최근 24시간을 조회합니다.</td>
-                </tr>
-                </tbody>
-            </table>
+        <div class="glist" style="--cols: 160px 96px 150px minmax(0, 1fr) 150px 96px">
+            <div class="glist-head">
+                <th:block th:replace="~{pki/fragments/ui :: logSortHead('occurredAt', '시각')}"></th:block>
+                <th:block th:replace="~{pki/fragments/ui :: logSortHead('category', '분류')}"></th:block>
+                <th:block th:replace="~{pki/fragments/ui :: logSortHead('action', '행위')}"></th:block>
+                <th:block th:replace="~{pki/fragments/ui :: logSortHead('targetId', '대상 · 내용')}"></th:block>
+                <th:block th:replace="~{pki/fragments/ui :: logSortHead('actor', '수행자')}"></th:block>
+                <th:block th:replace="~{pki/fragments/ui :: logSortHead('result', '결과')}"></th:block>
+            </div>
+            <a class="glist-row" th:each="e : ${page.content}" th:href="@{/pki/logs/{id}(id=${e.id})}">
+                <code class="glist-mono" th:text="${#temporals.format(e.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-29 10:42:18</code>
+                <span><span th:replace="~{pki/fragments/ui :: auditCategory(${e.category})}"></span></span>
+                <span style="font-weight: 600" th:insert="~{pki/fragments/ui :: label('AuditAction', ${e.action})}">발급</span>
+                <span class="glist-cell">
+                    <code class="glist-mono ellipsis" th:text="${e.targetId} ?: '—'">52e1ab88c0f731</code>
+                    <span class="hint ellipsis" th:text="${e.summary}">keyCompromise(1) · CRL 즉시 발행</span>
+                </span>
+                <code class="glist-mono" th:text="${e.actor}">operator</code>
+                <span>
+                    <span th:replace="~{pki/fragments/ui :: auditResult(${e.result})}"></span>
+                    <span class="tag" th:if="${e.probe}" title="자동 점검 요청">점검</span>
+                </span>
+            </a>
+            <div class="empty-state empty-lg" th:if="${page.empty}">
+                <div class="empty-title">조건에 맞는 로그가 없습니다</div>
+                <div class="hint" style="max-width: 460px">이 기간·분류에 기록된 액션이 없어요. 기간을 넓히거나 분류 탭을 '전체'로 바꿔 보세요. OCSP
+                    자동 확인 기록은 '자동 확인 포함'을 켜야 보입니다.
+                </div>
+            </div>
         </div>
 
-        <nav aria-label="페이지" class="pager">
+        <nav aria-label="페이지" class="pager" th:unless="${page.empty}">
             <div th:text="|총 ${page.totalElements}건 · ${page.size}건씩|">총 0건 · 50건씩</div>
             <div class="pages" th:if="${page.totalPages > 1}"
                  th:with="first=${page.number - 2 > 0} ? ${page.number - 2} : 0,
-                    last=${page.number + 2 < page.totalPages - 1} ? ${page.number + 2} : ${page.totalPages - 1}">
-                <a th:href="@{/pki/logs(page=${page.number - 1}, size=${page.size}, category=${filter.category}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}"
+                          last=${page.number + 2 < page.totalPages - 1} ? ${page.number + 2} : ${page.totalPages - 1}">
+                <a th:href="@{/pki/logs(page=${page.number - 1}, size=${page.size}, sort=${sortParam}, category=${filter.category}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}"
                    th:if="${page.hasPrevious()}">이전</a>
                 <span class="pg" th:unless="${page.hasPrevious()}">이전</span>
                 <a th:attr="aria-current=${i == page.number} ? 'page'" th:each="i : ${#numbers.sequence(first, last)}"
-                   th:href="@{/pki/logs(page=${i}, size=${page.size}, category=${filter.category}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}"
+                   th:href="@{/pki/logs(page=${i}, size=${page.size}, sort=${sortParam}, category=${filter.category}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}"
                    th:text="${i + 1}">1</a>
-                <a th:href="@{/pki/logs(page=${page.number + 1}, size=${page.size}, category=${filter.category}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}"
+                <a th:href="@{/pki/logs(page=${page.number + 1}, size=${page.size}, sort=${sortParam}, category=${filter.category}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}"
                    th:if="${page.hasNext()}">다음</a>
                 <span class="pg" th:unless="${page.hasNext()}">다음</span>
             </div>

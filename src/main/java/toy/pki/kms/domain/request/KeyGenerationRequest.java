@@ -4,8 +4,7 @@ import jakarta.annotation.Nonnull;
 import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 
 public record KeyGenerationRequest(
-        @Nonnull
-        KeyAlgorithmPreset keyAlgorithmPreset
-) {
+    String displayName,
+    @Nonnull KeyAlgorithmPreset keyAlgorithmPreset) {
 
 }

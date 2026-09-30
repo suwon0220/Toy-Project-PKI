@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <!--/*
   PKI 콘솔 공통 레이아웃.
-  사용: <html th:replace="~{pki/fragments/layout :: shell('인증서 발급', ~{::main}, 'issue')}">
-  activeMenu: issue | certificates | profiles | kms | logs
-  공통 Model(선택): flashSuccess, flashError (String), currentUser (String)
+  사용: <html th:replace="~{pki/fragments/layout :: shell('인증서 관리', ~{::main}, 'certificates')}">
+  activeMenu: certificates | profiles | kms | logs
+  공통 Model(선택): flashSuccess · message · success, flashError (String), currentUser, currentRole (String)
+    - message: KeyController 키 생성 성공 flash, success: ProfileController 생성 성공 flash
 */-->
 <html lang="ko" th:fragment="shell(title, content, activeMenu)" xmlns:th="http://www.thymeleaf.org">
 <head>
@@ -15,6 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap"
           rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/pki.css}">
+    <script defer th:src="@{/js/pki.js}"></script>
 </head>
 <body>
 <div class="shell">
@@ -24,23 +26,25 @@
             <span class="brand-sub">인증서 인프라</span>
         </a>
         <nav aria-label="PKI 메뉴" class="nav">
-            <a th:attr="aria-current=${activeMenu == 'issue'} ? 'page'" th:href="@{/pki/certificates/new}">인증서 발급</a>
-            <a th:attr="aria-current=${activeMenu == 'certificates'} ? 'page'" th:href="@{/pki/certificates}">인증서 상태
-                관리</a>
+            <a th:attr="aria-current=${activeMenu == 'certificates'} ? 'page'" th:href="@{/pki/certificates}">인증서 관리</a>
             <a th:attr="aria-current=${activeMenu == 'profiles'} ? 'page'" th:href="@{/pki/profiles}">인증서 프로파일</a>
-            <a th:attr="aria-current=${activeMenu == 'kms'} ? 'page'" th:href="@{/pki/kms}">KMS 키</a>
+            <a th:attr="aria-current=${activeMenu == 'kms'} ? 'page'" th:href="@{/pki/kms}">키 관리</a>
             <a th:attr="aria-current=${activeMenu == 'logs'} ? 'page'" th:href="@{/pki/logs}">전체 로그</a>
         </nav>
-        <div class="side-foot" th:text="${currentUser} ?: 'anonymous'">anonymous</div>
+        <div class="side-foot">
+            <span th:text="${currentUser} ?: 'anonymous'">anonymous</span><br>
+            <span th:text="${currentRole} ?: 'ROLE_PKI_ADMIN'">ROLE_PKI_ADMIN</span>
+        </div>
     </aside>
 
-    <div class="main">
-        <div class="alert alert-ok" role="status" th:if="${flashSuccess}">
+    <div class="main"
+         th:with="okMessage=${flashSuccess} ?: (${message} ?: ${success})">
+        <div class="alert alert-ok" role="status" th:if="${okMessage}">
             <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                  stroke-width="2" viewBox="0 0 24 24" width="18">
                 <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            <div th:text="${flashSuccess}">처리했습니다.</div>
+            <div th:text="${okMessage}">처리했습니다.</div>
         </div>
         <div class="alert alert-err" role="alert" th:if="${flashError}">
             <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"

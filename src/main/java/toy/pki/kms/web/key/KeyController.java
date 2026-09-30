@@ -1,27 +1,32 @@
 package toy.pki.kms.web.key;
 
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import toy.pki.kms.domain.algorithm.KeyAlgorithm;
-import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
-import toy.pki.kms.domain.algorithm.SignatureAlgorithm;
-import toy.pki.kms.domain.key.KeyID;
-import toy.pki.kms.domain.key.ManagedKey;
-import toy.pki.kms.domain.request.KeyGenerationRequest;
-import toy.pki.kms.domain.key.ManagedKeyRepository;
-import toy.pki.kms.domain.key.KeyManagementService;
-
 import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import toy.pki.kms.domain.algorithm.KeyAlgorithm;
+import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
+import toy.pki.kms.domain.algorithm.SignatureAlgorithm;
+import toy.pki.kms.domain.key.KeyID;
+import toy.pki.kms.domain.key.KeyManagementService;
+import toy.pki.kms.domain.key.ManagedKey;
+import toy.pki.kms.domain.key.ManagedKeyRepository;
+import toy.pki.kms.domain.request.KeyGenerationRequest;
 
 @Slf4j
 @Controller
@@ -47,7 +52,7 @@ public class KeyController {
         return SignatureAlgorithm.values();
     }
 
-    @GetMapping
+    @GetMapping("")
     public String keys(
             @RequestParam(required = false) KeyID signKeyId,
             @RequestParam(required = false) KeyID deleteKeyId,
@@ -64,14 +69,14 @@ public class KeyController {
     }
 
     // 키 생성
-    @PostMapping
+    @PostMapping("")
     public String saveKey(@Validated @ModelAttribute KeyGenerationRequest request, BindingResult bindingResult, RedirectAttributes redirectAttributes) throws GeneralSecurityException, IllegalArgumentException {
         log.info("request: {}", request);
         if (bindingResult.hasErrors()) {
             return "/pki/kms/index";
         }
 
-        ManagedKey generated = keyManagementService.generate(request.keyAlgorithmPreset());
+        ManagedKey generated = keyManagementService.generate(request);
         managedKeyRepository.save(generated);
         redirectAttributes.addFlashAttribute("message", "Key generated successfully.");
         return "redirect:/pki/kms";

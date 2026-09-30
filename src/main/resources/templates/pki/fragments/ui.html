@@ -46,15 +46,29 @@
   정렬이 바뀌면 page는 0 (파라미터 생략), 필터는 유지.
   Model: sortField, sortDir, filter
 */-->
-<th th:attr="aria-sort=${on} ? (${sortDir == 'desc'} ? 'descending' : 'ascending') : 'none'"
-    th:fragment="certSortHead(field, text)"
-    th:with="on=${sortField == field}, nextDir=${sortField == field and sortDir == 'asc'} ? 'desc' : 'asc'">
+<span th:attr="aria-sort=${on} ? (${sortDir == 'desc'} ? 'descending' : 'ascending') : 'none'"
+      th:fragment="certSortHead(field, text)"
+      th:with="on=${sortField == field}, nextDir=${sortField == field and sortDir == 'asc'} ? 'desc' : 'asc'">
     <a class="sort" th:classappend="${on} ? 'is-on'"
        th:href="@{/pki/certificates(sort=${field + ',' + nextDir}, q=${filter.q}, status=${filter.status}, caId=${filter.caId}, expiringWithinDays=${filter.expiringWithinDays})}">
         <span th:text="${text}">주체 CN</span>
         <span aria-hidden="true" class="arrow" th:text="${on} ? (${sortDir == 'desc'} ? '▼' : '▲') : '↕'">↕</span>
     </a>
-</th>
+</span>
+
+<!--/*
+  전체 로그 정렬 헤더. 규칙은 certSortHead 와 같다. 필터 · 분류 탭 값은 유지.
+  Model: sortField, sortDir, filter
+*/-->
+<span th:attr="aria-sort=${on} ? (${sortDir == 'desc'} ? 'descending' : 'ascending') : 'none'"
+      th:fragment="logSortHead(field, text)"
+      th:with="on=${sortField == field}, nextDir=${sortField == field and sortDir == 'asc'} ? 'desc' : 'asc'">
+    <a class="sort" th:classappend="${on} ? 'is-on'"
+       th:href="@{/pki/logs(sort=${field + ',' + nextDir}, category=${filter.category}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}">
+        <span th:text="${text}">시각</span>
+        <span aria-hidden="true" class="arrow" th:text="${on} ? (${sortDir == 'desc'} ? '▼' : '▲') : '↕'">↕</span>
+    </a>
+</span>
 
 </body>
 </html>

@@ -58,7 +58,7 @@ public class ProfileController {
         return profileService.listProfiles();
     }
 
-    @GetMapping
+    @GetMapping("")
     public String profiles(
         @RequestParam(required = false) UUID profileId,
         Model model
@@ -83,7 +83,7 @@ public class ProfileController {
         }
         UUID profileId = profileService.createProfile(form);
         redirectAttributes.addFlashAttribute("success", "Profile created successfully");
-        redirectAttributes.addAttribute("profileId", profileId);
+        // redirectAttributes.addAttribute("profileId", profileId);
         return "redirect:/pki/profiles";
     }
 

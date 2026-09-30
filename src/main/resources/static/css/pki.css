@@ -1,7 +1,7 @@
 /*
  * PKI Console — templates/pki/** 전용 스타일
  * 디자인 원본: Artifact "PKI 인증서 콘솔" (Design 캔버스)
- * JavaScript 없이 동작한다. 조건부 영역은 :has() 로만 처리.
+ * 조건부 영역은 서버(th:if)와 :has() 로 그리고, 정렬 · 화면 필터 · 공개키 표시 같은 보조 동작만 js/pki.js 가 맡는다.
  */
 
 :root {
@@ -1132,147 +1132,278 @@ fieldset.plain > legend {
     white-space: nowrap;
 }
 
-/* ---------- profiles ---------- */
-.plist {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.pitem {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 14px 16px;
-    border-radius: 10px;
-    text-decoration: none;
-    color: var(--ink);
-    background: var(--surface);
-    border: 1px solid var(--line);
-}
-
-.pitem:hover {
-    color: var(--ink);
-    border-color: var(--line-dashed);
-}
-
-.pitem[aria-current="page"] {
-    border-color: var(--accent);
-    box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.pitem-top {
+/* ---------- 목록 (grid list): 행 전체가 링크 ---------- */
+/* 열 너비는 사용하는 곳에서 style="--cols: ..." 로 준다 */
+.list-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 16px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--line-soft);
 }
 
-.pitem-name {
-    font-size: 14px;
-    font-weight: 600;
+.glist {
+    --cols: minmax(0, 1fr);
+    overflow-x: auto;
 }
 
-.pitem-meta {
-    font-family: var(--mono);
+.glist-head, .glist-row {
+    display: grid;
+    grid-template-columns: var(--cols);
+    gap: 12px;
+    align-items: center;
+    min-width: 640px;
+}
+
+.glist-head {
+    padding: 10px 22px;
     font-size: 12px;
+    font-weight: 700;
     color: var(--muted);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line-soft);
 }
 
-.pnew {
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 10px;
-    border: 1px dashed var(--line-dashed);
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--accent);
-}
-
-.pnew:hover {
-    background: var(--surface);
-}
-
-.pcopy {
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 500;
-}
-
-fieldset.form-body {
-    margin: 0;
+.glist-head button.sort {
     padding: 0;
     border: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+    background: none;
+    font: inherit;
+    cursor: pointer;
 }
 
-/* 인증서 종류가 CA일 때만 Basic Constraints 표시 (JS 없이) */
-/* fieldset.plain 의 display: flex 보다 우선하도록 .profile-form 을 붙인다 */
-.profile-form .sub-ca-only {
+.glist-row {
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--line-row);
+    font-size: 13px;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.glist-row:hover {
+    color: var(--ink);
+    background: var(--surface-2);
+}
+
+.glist-row.is-selected {
+    background: var(--accent-row);
+}
+
+.glist-row.is-danger {
+    background: var(--danger-row);
+}
+
+.glist-row[hidden] {
     display: none;
 }
 
-.profile-form:has(input[name="certType"][value="CA"]:checked) .sub-ca-only {
-    display: flex;
-}
-
-/* 목록이 비었을 때 */
-.pempty {
-    padding: 20px 16px;
-    border: 1px dashed var(--line-field);
-    border-radius: 10px;
-    background: var(--surface-2);
+.glist-cell {
+    min-width: 0;
     display: flex;
     flex-direction: column;
+    gap: 2px;
+}
+
+.glist-primary {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--accent);
+    min-width: 0;
+}
+
+.glist-row:hover .glist-primary {
+    text-decoration: underline;
+}
+
+.glist-sub {
+    font-size: 12px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.glist-mono {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+
+.empty-state {
+    padding: 40px 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     gap: 6px;
     text-align: center;
 }
 
-.pempty-title {
-    font-size: 14px;
-    font-weight: 600;
+.empty-state[hidden] {
+    display: none;
+}
+
+.empty-sm {
+    padding: 32px 22px;
+}
+
+.empty-lg {
+    padding: 64px 24px;
+    gap: 10px;
+}
+
+.empty-lg .btn {
+    margin-top: 8px;
+}
+
+.empty-title {
+    font-size: 15px;
+    font-weight: 700;
     color: var(--ink-2);
 }
 
-/* 선택된 프로파일 없음 */
-.no-sel {
-    min-width: 0;
-    min-height: 420px;
-    background: var(--surface);
-    border: 1px dashed var(--line-field);
-    border-radius: 10px;
-    padding: 48px 32px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    text-align: center;
+.empty-lg .empty-title {
+    font-size: 18px;
+    color: var(--ink);
 }
 
-.no-sel-title {
-    font-size: 18px;
+/* ---------- 공용 ---------- */
+.btn-sm {
+    height: 36px;
+    padding: 0 14px;
+    font-size: 13px;
+}
+
+.actions-end {
+    justify-content: flex-end;
+}
+
+.actions .btn.grow {
+    flex-grow: 1;
+}
+
+.text-danger {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.ocsp-GOOD {
+    color: var(--accent-ink);
+}
+
+.ocsp-REVOKED {
+    color: var(--danger-ink);
+}
+
+.info-box {
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: var(--accent-softer);
+    color: var(--accent-ink);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.danger-box {
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: var(--danger-row);
+    color: var(--danger-ink);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.danger-box-title {
+    font-size: 15px;
     font-weight: 700;
 }
 
-.no-sel-desc {
-    max-width: 440px;
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--muted);
+.verdict {
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    line-height: 1.5;
 }
 
-.no-sel .btn {
-    margin-top: 8px;
+.verdict-ok {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+}
+
+.verdict-bad {
+    background: var(--danger-soft);
+    color: var(--danger-ink);
+}
+
+.verdict-title {
+    font-weight: 700;
+}
+
+.seg .seg-off {
+    height: 36px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #A9A59B;
+    text-decoration: line-through;
+    cursor: not-allowed;
+}
+
+/* ---------- 인증서 관리: 목록 + 오른쪽 상세 패널 ---------- */
+.with-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 20px;
+    align-items: start;
+}
+
+.with-panel.no-panel {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.cert-panel {
+    padding: 22px;
+    gap: 18px;
+}
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+.panel-title {
+    font-size: 17px;
+    font-weight: 700;
+    min-width: 0;
+}
+
+.detail-solo {
+    max-width: 640px;
+}
+
+/* ---------- 프로파일 ---------- */
+/* 인증서 종류가 CA일 때만 Basic Constraints 표시 (JS 없이) */
+/* fieldset.plain 의 display: flex 보다 우선하도록 .profile-form 을 붙인다 */
+.profile-form .sub-ca-only {
+    display: none;
+    padding-top: 16px;
+    border-top: 1px solid var(--line-row);
+}
+
+.profile-form:has(input[name="certType"][value="CA"]:checked) .sub-ca-only {
+    display: flex;
 }
 
 /* 첫 프로파일 안내 */
@@ -1296,39 +1427,30 @@ fieldset.form-body {
     line-height: 1.55;
 }
 
-/* ---------- kms ---------- */
-.kms-forms {
+/* ---------- 키 관리 ---------- */
+/* 키 생성: 별칭 | 알고리즘 260px | 생성 */
+.gen-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-    gap: 20px;
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr) 260px auto;
+    gap: 16px;
+    align-items: end;
 }
 
-.sign-grid {
+.btn-gen {
+    padding: 0 22px;
+}
+
+.grid-sig {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 140px;
+    grid-template-columns: minmax(0, 1fr) 150px;
     gap: 14px;
 }
 
-.delete-panel {
-    flex-direction: row;
-    align-items: flex-end;
-    gap: 16px;
-    flex-wrap: wrap;
-    padding: 20px 22px;
+/* ---------- 팝업: 서버가 th:if 로 그리는 오버레이. 닫기(X) · 취소 링크로만 닫힌다 ---------- */
+body:has(.overlay) {
+    overflow: hidden;
 }
 
-.delete-panel .grow {
-    flex: 1 1 320px;
-}
-
-.delete-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--danger-ink);
-}
-
-/* ---------- kms: 키 상세 팝업 (?keyId=, JS 없음) ---------- */
 .overlay {
     position: fixed;
     inset: 0;
@@ -1341,15 +1463,30 @@ fieldset.form-body {
     overflow-y: auto;
 }
 
+.overlay-wide {
+    padding-top: 40px;
+}
+
 .modal {
     width: 680px;
     max-width: 100%;
+    flex-shrink: 0;
     background: var(--surface);
     border-radius: 12px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+.modal-wide {
+    width: 1040px;
+    background: var(--bg);
+}
+
+.modal-xl {
+    width: 1180px;
+    background: var(--bg);
 }
 
 .modal-head, .modal-foot {
@@ -1362,15 +1499,39 @@ fieldset.form-body {
 .modal-head {
     justify-content: space-between;
     border-bottom: 1px solid var(--line-soft);
+    background: var(--surface);
 }
 
-.modal-foot .grow {
+.modal-head-plain {
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 14px 20px 14px 24px;
+    font-size: 13px;
+}
+
+.modal-head .grow {
     flex-grow: 1;
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.modal-title-sub {
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.modal-kicker {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
 }
 
 .modal-foot {
     border-top: 1px solid var(--line-soft);
-    background: #FBFAF7;
+    background: var(--surface-2);
     flex-wrap: wrap;
 }
 
@@ -1378,12 +1539,19 @@ fieldset.form-body {
     padding: 20px 24px;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 14px;
+    min-width: 0;
+}
+
+.modal-wide .modal-body, .modal-xl .modal-body {
+    padding: 20px 24px 24px;
+    gap: 16px;
 }
 
 .modal-close {
     width: 40px;
     height: 40px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1392,25 +1560,34 @@ fieldset.form-body {
 }
 
 .modal-close:hover {
+    color: var(--ink);
     background: var(--seg);
 }
 
-.mini-log {
-    border: 1px solid var(--line-soft);
-    border-radius: 8px;
+.modal-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--line-soft);
 }
 
-.mini-log > div {
-    display: grid;
-    grid-template-columns: 150px 90px minmax(0, 1fr);
-    gap: 10px;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--line-row);
-    font-size: 12.5px;
+.modal-tabs a {
+    padding: 12px 14px;
+    margin-bottom: -1px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
 }
 
-.mini-log > div:last-child {
-    border-bottom: 0;
+.modal-tabs a:hover {
+    color: var(--ink);
+}
+
+.modal-tabs a[aria-current="page"] {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
 }
 
 /* ---------- logs: 분류 탭 · 분류 칩 ---------- */
@@ -1475,9 +1652,10 @@ fieldset.form-body {
     word-break: break-word;
 }
 
+
 /* ---------- responsive ---------- */
 @media (max-width: 1180px) {
-    .with-aside, .with-aside-wide, .with-nav, .kms-forms {
+    .with-aside, .with-aside-wide, .with-panel {
         grid-template-columns: minmax(0, 1fr);
     }
 
@@ -1511,7 +1689,7 @@ fieldset.form-body {
         padding: 24px 16px 48px;
     }
 
-    .grid-2, .grid-3, .grid-4, .sign-grid {
+    .grid-2, .grid-3, .grid-4, .grid-sig, .gen-row {
         grid-template-columns: minmax(0, 1fr);
     }
 
@@ -1521,5 +1699,14 @@ fieldset.form-body {
 
     .filter-bar > *, .filter-bar .field {
         width: 100%;
+    }
+
+    .overlay, .overlay-wide {
+        padding: 16px;
+    }
+
+    .modal-head, .modal-body, .modal-foot, .modal-tabs {
+        padding-left: 16px;
+        padding-right: 16px;
     }
 }
