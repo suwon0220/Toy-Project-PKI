@@ -23,7 +23,7 @@ import toy.pki.kms.domain.algorithm.KeyAlgorithm;
 import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 import toy.pki.kms.domain.algorithm.SignatureAlgorithm;
 import toy.pki.kms.domain.key.KeyID;
-import toy.pki.kms.domain.key.KeyManagementService;
+import toy.pki.kms.domain.key.KeyGenerationService;
 import toy.pki.kms.domain.key.ManagedKey;
 import toy.pki.kms.domain.key.ManagedKeyRepository;
 import toy.pki.kms.domain.request.KeyGenerationRequest;
@@ -34,7 +34,7 @@ import toy.pki.kms.domain.request.KeyGenerationRequest;
 @RequestMapping("/pki/kms")
 public class KeyController {
 
-    private final KeyManagementService keyManagementService;
+    private final KeyGenerationService keyGenerationService;
     private final ManagedKeyRepository managedKeyRepository;
 
     @ModelAttribute("algorithms")
@@ -76,7 +76,7 @@ public class KeyController {
             return "/pki/kms/index";
         }
 
-        ManagedKey generated = keyManagementService.generate(request);
+        ManagedKey generated = keyGenerationService.generate(request);
         managedKeyRepository.save(generated);
         redirectAttributes.addFlashAttribute("message", "Key generated successfully.");
         return "redirect:/pki/kms";

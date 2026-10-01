@@ -14,7 +14,7 @@ import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 @RequiredArgsConstructor
 @AllArgsConstructor
 public class ManagedKey {
-    private final KeyID id = new KeyID(UUID.randomUUID());
+    private final KeyID id = new KeyID(-1L);
     private final Date createdAt = new Date();
     private final KeyAlgorithmPreset keyAlgorithmPreset;
     private final KeyPair keyPair;

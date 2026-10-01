@@ -12,11 +12,10 @@ import toy.pki.kms.infrastructure.jca.KeyGeneratorRegistry;
 
 @Service
 @RequiredArgsConstructor
-public class KeyManagementService {
+public class KeyGenerationService {
 
     private final KeyGeneratorRegistry keyGeneratorRegistry;
 
-    // public ManagedKey generate(KeyAlgorithmPreset profile) throws GeneralSecurityException {
     public ManagedKey generate(KeyGenerationRequest request) throws GeneralSecurityException {
         KeyGenerationParameter parameter = request.keyAlgorithmPreset().createParameter();
 
@@ -26,4 +25,5 @@ public class KeyManagementService {
         managedKey.setDisplayName(request.displayName());
         return managedKey;
     }
+
 }

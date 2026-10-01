@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import org.bouncycastle.asn1.x509.KeyUsage;
 
 import lombok.Data;
@@ -16,9 +17,10 @@ import toy.pki.ca.domain.extension.BasicConstraintsProfile;
 import toy.pki.ca.domain.extension.ExtendedKeyUsageProfile;
 
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
 public class Profile {
-    private final UUID id = UUID.randomUUID();
+    private Long id;
     private ProfileStatus status;
 
     @Nullable

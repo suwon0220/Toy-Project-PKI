@@ -21,7 +21,7 @@ public class DistinguishedName {
         this.country = "".equals(country) ? null : country;
     }
 
-    X500Name toX500Name() {
+    public X500Name toX500Name() {
         X500NameBuilder builder = new X500NameBuilder();
         if (country != null) {
             builder.addRDN(org.bouncycastle.asn1.x500.style.BCStyle.C, country);

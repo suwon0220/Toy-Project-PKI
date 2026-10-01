@@ -1,4 +1,4 @@
-package toy.pki.ca.web.certificate;
+package toy.pki.ca.web.certificate.dto;
 
 import lombok.Data;
 
@@ -7,8 +7,7 @@ import lombok.Data;
  */
 @Data
 public class CertificateFilter {
-    private String caId;
     private String q;
     private String status;
-    private Integer expiringWithinDays;
+    private String profileName;
 }

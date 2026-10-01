@@ -388,6 +388,13 @@ code, .mono {
     gap: 16px 24px;
 }
 
+/* 발급 팝업 1번 카드: 프로파일 · 유효기간 · 시작 시각 */
+.grid-profile {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px 20px;
+}
+
 .grid-4 {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1305,6 +1312,34 @@ fieldset.plain > legend {
     line-height: 1.55;
 }
 
+/* 아이콘 + 문단 안내 (발급 팝업의 ROOT_CA 자체 서명 안내) */
+.info-box-lg {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 18px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 13.5px;
+}
+
+.info-box-lg svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* 발급될 인증서 (예상) */
+.dl-preview {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 7px 10px;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.dl-preview dd.mono {
+    font-size: 11.5px;
+}
+
 .danger-box {
     padding: 14px 16px;
     border-radius: 8px;
@@ -1394,7 +1429,7 @@ fieldset.plain > legend {
 }
 
 /* ---------- 프로파일 ---------- */
-/* 인증서 종류가 CA일 때만 Basic Constraints 표시 (JS 없이) */
+/* 인증서 종류가 Sub CA · Root CA일 때만 Basic Constraints 표시 (JS 없이) */
 /* fieldset.plain 의 display: flex 보다 우선하도록 .profile-form 을 붙인다 */
 .profile-form .sub-ca-only {
     display: none;
@@ -1402,7 +1437,8 @@ fieldset.plain > legend {
     border-top: 1px solid var(--line-row);
 }
 
-.profile-form:has(input[name="certType"][value="CA"]:checked) .sub-ca-only {
+.profile-form:has(input[name="certType"][value="SUB_CA"]:checked) .sub-ca-only,
+.profile-form:has(input[name="certType"][value="ROOT_CA"]:checked) .sub-ca-only {
     display: flex;
 }
 
@@ -1665,6 +1701,10 @@ body:has(.overlay) {
 }
 
 @media (max-width: 860px) {
+    .grid-profile {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
     .shell {
         grid-template-columns: minmax(0, 1fr);
     }

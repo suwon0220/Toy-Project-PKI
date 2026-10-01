@@ -1,5 +1,6 @@
 package toy.pki.kms.domain.key;
 
+import lombok.NonNull;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
@@ -12,12 +13,12 @@ public class ManagedKeyRepository {
 
     private static final Map<KeyID, ManagedKey> store = new ConcurrentHashMap<>();
 
-    public ManagedKey save(ManagedKey managedKey) {
+    public ManagedKey save(@NonNull ManagedKey managedKey) {
         store.put(managedKey.getId(), managedKey);
         return managedKey;
     }
 
-    public ManagedKey findByKeyID(KeyID id) {
+    public ManagedKey findByKeyID(@NonNull KeyID id) {
         return store.get(id);
     }
 

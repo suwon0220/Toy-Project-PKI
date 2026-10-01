@@ -50,7 +50,7 @@
       th:fragment="certSortHead(field, text)"
       th:with="on=${sortField == field}, nextDir=${sortField == field and sortDir == 'asc'} ? 'desc' : 'asc'">
     <a class="sort" th:classappend="${on} ? 'is-on'"
-       th:href="@{/pki/certificates(sort=${field + ',' + nextDir}, q=${filter.q}, status=${filter.status}, caId=${filter.caId}, expiringWithinDays=${filter.expiringWithinDays})}">
+       th:href="@{/pki/certificates(sort=${field + ',' + nextDir}, q=${filter.q}, status=${filter.status}, profileName=${filter.profileName})}">
         <span th:text="${text}">주체 CN</span>
         <span aria-hidden="true" class="arrow" th:text="${on} ? (${sortDir == 'desc'} ? '▼' : '▲') : '↕'">↕</span>
     </a>

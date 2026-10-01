@@ -1,4 +1,4 @@
-package toy.pki.ca.web.certificate.form;
+package toy.pki.ca.web.certificate.dto;
 
 /**
  * SignMode

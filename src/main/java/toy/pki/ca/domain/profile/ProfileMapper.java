@@ -13,12 +13,12 @@ import toy.pki.ca.domain.extension.ExtendedKeyUsageProfile;
 import toy.pki.ca.domain.extension.ExtendedKeyUsageRecord;
 import toy.pki.ca.domain.extension.KeyUsageBit;
 import toy.pki.ca.domain.extension.StandardExtendedKeyUsage;
-import toy.pki.ca.web.profile.form.ProfileSaveForm;
-import toy.pki.ca.web.profile.form.ProfileUpdateForm;
+import toy.pki.ca.web.profile.dto.ProfileSaveForm;
+import toy.pki.ca.web.profile.dto.ProfileUpdateForm;
 
 @Component
 public class ProfileMapper {
-    public Profile toDomain(ProfileSaveForm form) {
+    public static Profile toDomain(ProfileSaveForm form) {
         int keyUsage = 0;
         Set<ExtendedKeyUsageRecord> extendedKeyUsages = new HashSet<>();
 
@@ -34,6 +34,7 @@ public class ProfileMapper {
             extendedKeyUsages.addAll(form.getCustomExtendedKeyUsages());
 
         return new Profile(
+            -1L,
             ProfileStatus.DRAFT,
             form.getAlias(),
             form.getDescription(),
@@ -43,14 +44,16 @@ public class ProfileMapper {
             new AllowedKeyAlgorithm(form.getKeyAlgorithms()),
             new KeyUsage(keyUsage),
             form.getSubjectDn(),
-            new BasicConstraintsProfile(form.getCertType().equals(CertType.CA), form.getPathLenConstraint()),
+            new BasicConstraintsProfile(!CertType.LEAF.equals(form.getCertType()), form.getPathLenConstraint()),
             new ExtendedKeyUsageProfile(form.isCriticalExtendedKeyUsage(), extendedKeyUsages),
             form.getAuthorityKeyIdentifier(),
             form.getAuthorityInformationAccess()
         );
     }
 
-    public ProfileUpdateForm toUpdateForm(Profile profile) {
+    public static ProfileUpdateForm toUpdateForm(Profile profile) {
+        if(profile == null) return new ProfileUpdateForm();
+
         Set<StandardExtendedKeyUsage> standardExtendedKeyUsages = EnumSet.noneOf(StandardExtendedKeyUsage.class);
         List<ExtendedKeyUsageRecord> customExtendedKeyUsages = new ArrayList<>();
         EnumSet<KeyUsageBit> keyUsageBits = EnumSet.noneOf(KeyUsageBit.class);
@@ -74,6 +77,7 @@ public class ProfileMapper {
         }
 
         return new ProfileUpdateForm(
+            profile.getId(),
             profile.getAlias(),
             profile.getDescription(),
             profile.getCertType(),
@@ -84,7 +88,7 @@ public class ProfileMapper {
             profile.getExtendedKeyUsage().critical(),
             standardExtendedKeyUsages,
             customExtendedKeyUsages,
-            profile.getCertType().equals(CertType.CA) ? profile.getBasicConstraints().pathLenConstraint() : null,
+            profile.getCertType().equals(CertType.LEAF) ? null : profile.getBasicConstraints().pathLenConstraint(),
             profile.getSubjectDn(),
             profile.getAuthorityKeyIdentifier(),
             profile.getAuthorityInformationAccess()

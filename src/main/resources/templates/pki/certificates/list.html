@@ -1,25 +1,27 @@
 <!DOCTYPE html>
 <!--/*
   인증서 관리 (메뉴 "인증서 관리"): 목록 · 검색 + 오른쪽 상세 패널 + 발급 팝업.
-  GET /pki/certificates?q=&status=&caId=&expiringWithinDays=&page=&size=&sort=   → pki/certificates/list
-  GET /pki/certificates?mode=issue&signMode=&keySource=                          → 같은 뷰 + 발급 팝업
+  GET /pki/certificates?q=&status=&profileName=&page=&size=&sort=   → pki/certificates/list
+  GET /pki/certificates?mode=issue&profileId=&keyMode=&issuerCertificateId=   → 같은 뷰 + 발급 팝업
   Model: page(Page<CertificateSummary> — content, empty, totalElements, size, totalPages, number, hasPrevious(), hasNext()),
-         totalCertificateCount(long), sortField, sortDir, filter(CertificateFilter), caList(List<CaSummary>), statuses(CertStatus[])
+         totalCertificateCount(long), sortField, sortDir, filter(CertificateFilter — q, status, profileName), statuses(CertStatus[]),
+         profileNames(List<String> — 인증서에 저장된 profileName 의 DISTINCT 값. 프로파일 테이블과 무관)
+  CRL 즉시 발행은 목록이 아니라 CA 인증서 상세 패널에 있다 (pki/certificates/detail 참고).
   선택: cert(CertificateDetail) + 상세 패널 Model(pki/certificates/detail 참고) → 오른쪽 상세 패널
-        issueForm(CertificateIssueForm) + 발급 Model(pki/certificates/issue 참고)   → 발급 팝업
+        certificateIssueForm(CertificateIssueForm) + 발급 Model(pki/certificates/issue 참고)   → 발급 팝업
 */-->
 <html lang="ko" th:replace="~{pki/fragments/layout :: shell('인증서 관리', ~{::main}, 'certificates')}"
       xmlns:th="http://www.thymeleaf.org">
 <body>
 <main class="stack"
       th:with="sortParam=${sortField + ',' + sortDir},
-               noCerts=${totalCertificateCount != null and totalCertificateCount == 0}">
+               noCerts=${page == null or (totalCertificateCount != null and totalCertificateCount == 0)}">
 
     <div class="page-head">
         <div class="crumbs">PKI / 인증서 관리</div>
         <div class="page-title-row">
             <h1 class="page-title">인증서 관리</h1>
-            <a class="btn btn-primary btn-md" th:href="@{/pki/certificates(mode='issue')}">+ 새 인증서 발급</a>
+            <a class="btn btn-primary btn-md" th:href="@{/pki/certificates(mode='issue', keyMode='NEW')}">+ 새 인증서 발급</a>
         </div>
     </div>
 
@@ -40,31 +42,14 @@
                 </select>
             </div>
             <div class="field field-sm w-210">
-                <label class="lbl" for="caId">발급 CA</label>
-                <select class="f" th:field="*{caId}">
+                <label class="lbl" for="profileName">프로파일</label>
+                <select class="f" th:field="*{profileName}">
                     <option value="">전체</option>
-                    <option th:each="ca : ${caList}" th:text="${ca.name}" th:value="${ca.caId}">Issuing CA — TLS</option>
-                </select>
-            </div>
-            <div class="field field-sm w-150">
-                <label class="lbl" for="expiringWithinDays">만료 임박</label>
-                <select class="f" th:field="*{expiringWithinDays}">
-                    <option value="">전체</option>
-                    <option value="30">30일 이내</option>
-                    <option value="90">90일 이내</option>
+                    <option th:each="name : ${profileNames}" th:text="${name}" th:value="${name}">TLS 서버</option>
                 </select>
             </div>
             <button class="btn btn-dark" type="submit">조회</button>
         </form>
-
-        <!--/* CRL 즉시 발행: 발급 CA로 조회한 상태에서만 대상이 정해진다 */-->
-        <form method="post" th:action="@{/pki/cas/{caId}/crl(caId=${filter.caId})}"
-              th:if="${filter.caId != null and !#strings.isEmpty(filter.caId)}">
-            <button class="btn btn-outline" type="submit">CRL 즉시 발행</button>
-        </form>
-        <button class="btn btn-outline" disabled th:unless="${filter.caId != null and !#strings.isEmpty(filter.caId)}"
-                title="발급 CA를 선택해 조회하면 해당 CA의 CRL을 발행할 수 있습니다" type="button">CRL 즉시 발행
-        </button>
     </div>
 
     <div class="with-panel" th:classappend="${cert == null} ? 'no-panel'">
@@ -81,7 +66,7 @@
                    th:href="@{/pki/certificates/{serial}(serial=${c.serial})}">
                     <span class="glist-cell">
                         <span class="glist-primary ellipsis" th:text="${c.subjectCn}">api.example.com</span>
-                        <span class="glist-sub mono" th:text="|${c.serial} · ${c.caName}|">1b77e04a9c3d12 · Issuing CA — TLS</span>
+                        <span class="glist-sub mono" th:text="|${c.serial} · ${c.issuerCn}|">1b77e04a9c3d12 · Issuing CA — TLS</span>
                     </span>
                     <span th:text="${c.profileName}">TLS 서버</span>
                     <span class="glist-cell">
@@ -100,10 +85,10 @@
 
             <div class="empty-state empty-lg" th:if="${noCerts}">
                 <div class="empty-title">발급된 인증서가 없습니다</div>
-                <div class="hint" style="max-width: 460px">[+ 새 인증서 발급]으로 첫 인증서를 만드세요. 발급할 CA가 아직 없다면 발급 방식을
-                    '자체 서명'으로 골라 Root CA부터 만들면 됩니다.
+                <div class="hint" style="max-width: 460px">[+ 새 인증서 발급]으로 첫 인증서를 만드세요. 발급할 CA가 아직 없다면
+                    ROOT_CA 프로파일을 골라 자체 서명 Root CA부터 만들면 됩니다.
                 </div>
-                <a class="btn btn-primary btn-md" th:href="@{/pki/certificates(mode='issue')}">+ 새 인증서 발급</a>
+                <a class="btn btn-primary btn-md" th:href="@{/pki/certificates(mode='issue', keyMode='NEW')}">+ 새 인증서 발급</a>
             </div>
 
             <nav aria-label="페이지" class="pager" th:unless="${noCerts or page.empty}">
@@ -111,13 +96,13 @@
                 <div class="pages" th:if="${page.totalPages > 1}"
                      th:with="first=${page.number - 2 > 0} ? ${page.number - 2} : 0,
                               last=${page.number + 2 < page.totalPages - 1} ? ${page.number + 2} : ${page.totalPages - 1}">
-                    <a th:href="@{/pki/certificates(page=${page.number - 1}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, caId=${filter.caId}, expiringWithinDays=${filter.expiringWithinDays})}"
+                    <a th:href="@{/pki/certificates(page=${page.number - 1}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, profileName=${filter.profileName})}"
                        th:if="${page.hasPrevious()}">이전</a>
                     <span class="pg" th:unless="${page.hasPrevious()}">이전</span>
                     <a th:attr="aria-current=${i == page.number} ? 'page'" th:each="i : ${#numbers.sequence(first, last)}"
-                       th:href="@{/pki/certificates(page=${i}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, caId=${filter.caId}, expiringWithinDays=${filter.expiringWithinDays})}"
+                       th:href="@{/pki/certificates(page=${i}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, profileName=${filter.profileName})}"
                        th:text="${i + 1}">1</a>
-                    <a th:href="@{/pki/certificates(page=${page.number + 1}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, caId=${filter.caId}, expiringWithinDays=${filter.expiringWithinDays})}"
+                    <a th:href="@{/pki/certificates(page=${page.number + 1}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, profileName=${filter.profileName})}"
                        th:if="${page.hasNext()}">다음</a>
                     <span class="pg" th:unless="${page.hasNext()}">다음</span>
                 </div>
@@ -131,7 +116,7 @@
     </div>
 
     <!-- 발급 팝업 -->
-    <th:block th:if="${issueForm != null}">
+    <th:block th:if="${certificateIssueForm != null}">
         <div th:replace="~{pki/certificates/issue :: dialog}"></div>
     </th:block>
 </main>

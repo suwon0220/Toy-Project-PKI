@@ -6,7 +6,7 @@
   GET  /pki/profiles?profileId=           → 목록 + 편집 팝업 (profileUpdateForm = 선택한 프로파일 값)
   GET  /pki/profiles?profileId=&mode=new  → 목록 + 복제 팝업 (선택한 프로파일 값, 별칭은 비움)
   POST /pki/profiles/create               (생성, ProfileSaveForm) — 검증 실패 시 같은 뷰 + profileSaveForm
-  POST /pki/profiles/{profileId}/update · /activate · /retire · /delete — 컨트롤러 구현 필요
+  POST /pki/profiles/activate?profileId= (구현됨) · /pki/profiles/{profileId}/update · /retire · /delete — 컨트롤러 구현 필요
   Model: profiles(List<Profile>), profileUpdateForm(GET) 또는 profileSaveForm(POST 검증 실패),
          certTypes(CertType[]), keyAlgorithmPresets(KeyAlgorithmPreset[]),
          keyUsages(KeyUsageBit[]), standardExtendedKeyUsages(StandardExtendedKeyUsage[])
@@ -166,10 +166,9 @@
                 <!--/* 복제로 시작하면 원본 이름을 비운다 */-->
                 <input class="f" id="alias" maxlength="50" name="alias" placeholder="TLS 서버" required spellcheck="false"
                        th:classappend="${#fields.hasErrors('alias')} ? 'is-invalid'"
-                       th:readonly="${isEdit}"
                        th:value="${isCopy} ? '' : ${form.alias}" type="text">
                 <div class="err" th:each="e : ${#fields.errors('alias')}" th:text="${e}">이름 오류</div>
-                <div class="hint">목록·발급 화면에 보이는 이름. 중복 불가, 생성 후 변경할 수 없습니다.</div>
+                <div class="hint">목록·발급 화면에 보이는 이름. 중복 불가, 생성 후에도 바꿀 수 있습니다.</div>
             </div>
             <div class="field span-2">
                 <label class="lbl" for="description">설명</label>
@@ -180,12 +179,13 @@
 
         <fieldset class="plain">
             <legend class="lbl">인증서 종류 <span aria-hidden="true" class="req">*</span></legend>
-            <div class="grid-2" style="gap: 12px">
+            <div class="grid-3" style="gap: 12px">
                 <label class="choice" th:each="ct : ${certTypes}">
                     <input th:field="*{certType}" th:value="${ct}" type="radio">
                     <span th:switch="${ct.name()}">
                         <th:block th:case="'LEAF'"><b>Leaf</b><br><span class="hint">서버·클라이언트·장비 인증서. CA:FALSE</span></th:block>
-                        <th:block th:case="'CA'"><b>CA</b><br><span class="hint">Root CA · 하위 CA. CA:TRUE, keyCertSign · cRLSign 필수</span></th:block>
+                        <th:block th:case="'SUB_CA'"><b>Sub CA</b><br><span class="hint">상위 CA가 서명하는 하위 CA. CA:TRUE, keyCertSign · cRLSign 필수</span></th:block>
+                        <th:block th:case="'ROOT_CA'"><b>Root CA</b><br><span class="hint">자체 서명 최상위 CA. CA:TRUE, keyCertSign · cRLSign 필수</span></th:block>
                         <b th:case="*" th:text="${ct}">LEAF</b>
                     </span>
                 </label>
@@ -268,10 +268,10 @@
             </fieldset>
         </div>
 
-        <!--/* CA:TRUE/FALSE 는 certType 으로 정한다. CA 를 고른 경우에만 Basic Constraints 입력을 보여준다. */-->
+        <!--/* CA:TRUE/FALSE 는 certType 으로 정한다. SUB_CA · ROOT_CA 를 고른 경우에만 Basic Constraints 입력을 보여준다. */-->
         <fieldset class="plain sub-ca-only">
             <legend class="lbl">Basic Constraints</legend>
-            <div class="hint">CA:TRUE — 인증서 종류에서 CA를 선택하면 자동으로 들어갑니다.</div>
+            <div class="hint">CA:TRUE — 인증서 종류에서 Sub CA 또는 Root CA를 선택하면 자동으로 들어갑니다.</div>
             <div class="field" style="max-width: 280px; margin-top: 8px">
                 <label class="lbl" for="pathLenConstraint">pathLenConstraint</label>
                 <input class="f" min="0" th:classappend="${#fields.hasErrors('pathLenConstraint')} ? 'is-invalid'"
@@ -307,7 +307,7 @@
                 <input name="_authorityKeyIdentifier.includeIssuerAndSerialNumber" type="hidden" value="on">
                 <input name="_authorityInformationAccess.includeAiaOcsp" type="hidden" value="on">
                 <input name="_authorityInformationAccess.includeAiaCaIssuers" type="hidden" value="on">
-                <input name="_authorityInformationAccess.includeCd" type="hidden" value="on">
+                <input name="_authorityInformationAccess.includeCdp" type="hidden" value="on">
                 <label class="ck"><input name="authorityKeyIdentifier.includeIssuerAndSerialNumber"
                                          th:checked="${aki?.includeIssuerAndSerialNumber()}" type="checkbox" value="true">AKI —
                     발급자 이름 · 시리얼 포함</label>
@@ -316,8 +316,8 @@
                 <label class="ck"><input name="authorityInformationAccess.includeAiaCaIssuers"
                                          th:checked="${aia?.includeAiaCaIssuers()}" type="checkbox" value="true">AIA —
                     caIssuers</label>
-                <label class="ck"><input name="authorityInformationAccess.includeCd"
-                                         th:checked="${aia?.includeCd()}" type="checkbox" value="true">CRL 배포 지점</label>
+                <label class="ck"><input name="authorityInformationAccess.includeCdp"
+                                         th:checked="${aia?.includeCdp()}" type="checkbox" value="true">CRL 배포 지점</label>
                 <div class="err" th:each="e : ${#fields.errors('authorityKeyIdentifier*')}" th:text="${e}">AKI 오류</div>
                 <div class="err" th:each="e : ${#fields.errors('authorityInformationAccess*')}" th:text="${e}">AIA 오류</div>
             </fieldset>
@@ -335,7 +335,7 @@
                     type="submit">사용 중지 (RETIRED)
             </button>
             <button class="btn btn-accent-outline btn-md" formnovalidate
-                    th:formaction="@{/pki/profiles/{id}/activate(id=${profileId})}" th:if="${st == 'DRAFT'}"
+                    th:formaction="@{/pki/profiles/activate(profileId=${profileId})}" th:if="${st == 'DRAFT'}"
                     type="submit">활성화
             </button>
         </th:block>

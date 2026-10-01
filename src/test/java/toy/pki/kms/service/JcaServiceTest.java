@@ -12,7 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import toy.pki.kms.domain.algorithm.DigestAlgorithm;
 import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 import toy.pki.kms.domain.algorithm.SignatureAlgorithm;
-import toy.pki.kms.domain.key.KeyManagementService;
+import toy.pki.kms.domain.key.KeyGenerationService;
 import toy.pki.kms.domain.key.ManagedKey;
 import toy.pki.kms.domain.request.KeyGenerationRequest;
 import toy.pki.kms.domain.sig.SignatureService;
@@ -21,7 +21,7 @@ import toy.pki.kms.domain.sig.SignatureService;
 class JcaServiceTest {
 
     @Autowired
-    private KeyManagementService jcaKeyManagementService;
+    private KeyGenerationService jcaKeyGenerationService;
 
     @Autowired
     private SignatureService jcaSignatureService;
@@ -70,7 +70,7 @@ class JcaServiceTest {
     @EnumSource(KeyAlgorithmPreset.class)
     void generate(KeyAlgorithmPreset keyAlgorithmPreset) throws Exception {
         KeyGenerationRequest request = new KeyGenerationRequest("", keyAlgorithmPreset);
-        ManagedKey generated = jcaKeyManagementService.generate(request);
+        ManagedKey generated = jcaKeyGenerationService.generate(request);
         assertThat(generated).isNotNull();
         assertThat(generated.getId()).isNotNull();
         assertThat(generated.getKeyAlgorithmPreset()).isNotNull();

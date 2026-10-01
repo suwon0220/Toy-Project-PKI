@@ -1,43 +1,38 @@
-package toy.pki.ca.web.certificate.form;
+package toy.pki.ca.web.certificate.dto;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
-
-import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import toy.pki.ca.domain.certificate.DistinguishedName;
 import toy.pki.kms.domain.algorithm.KeyAlgorithm;
+import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 
 @Data
 public class CertificateIssueForm {
+    private Long issuerCertificateId;
 
-    @NotNull 
-    private SignMode signMode;
-    private String caId;
-    
     @NotNull 
     private Long profileId;
 
-    @NotNull 
     private Integer validityDays;
 
     @NotNull 
     private LocalDateTime notBefore;
 
-    private KeySource keySource;
+    @NotNull
+    private KeyMode keyMode;
 
-    private MultipartFile csrFile;
+    // If keyMode is NEW {
+    private String keyAlias;
+    private KeyAlgorithmPreset keyAlgorithmPreset;
+    // }
 
-    private String csrPEM;
+    // If keyMode is EXISTING {
+    private Long kmsKeyId;
+    // }
 
-    private UUID kmsKeyId;
-    
-    private KeyAlgorithm keyAlgorithm;
-    private String p12Password;
-
+    @NotNull
     private DistinguishedName subjectDn;
-
-    private boolean registerAsCa;
 }

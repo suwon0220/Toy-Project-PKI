@@ -6,6 +6,7 @@
   POST /pki/certificates/{serial}/status-check   → redirect + flash ocspCheck
   POST /pki/certificates/{serial}/revoke         → 검증 실패 시 같은 뷰
   POST /pki/certificates/{serial}/release-hold
+  POST /pki/certificates/{serial}/crl            → CA 인증서(SUB_CA·ROOT_CA)만. redirect:/pki/certificates/{serial} + flashSuccess
   Model: cert(CertificateDetail), revokeForm, revocationReasons, canRevoke
          ocspCheck(OcspCheckResult, flash), p12Token(String, flash)
 */-->
@@ -50,7 +51,7 @@
         <dt>시리얼</dt>
         <dd class="mono" th:text="${cert.serial}">1b77e04a9c3d12</dd>
         <dt>발급 CA</dt>
-        <dd th:text="${cert.caName}">Issuing CA — TLS</dd>
+        <dd th:text="${cert.issuerCn}">Issuing CA — TLS</dd>
         <dt>프로파일</dt>
         <dd th:text="${cert.profileName}">TLS 서버</dd>
         <dt>유효기간</dt>
@@ -76,6 +77,17 @@
         <a th:href="@{/pki/certificates/{serial}/download(serial=${cert.serial}, format='DER')}">DER</a>
         <a th:href="@{/pki/certificates/{serial}/download(serial=${cert.serial}, format='CHAIN_PEM')}">체인 PEM</a>
         <a th:href="@{/pki/certificates/{serial}/download(serial=${cert.serial}, format='PKCS7')}">PKCS#7</a>
+    </div>
+
+    <!-- CRL 즉시 발행: CA 인증서(SUB_CA·ROOT_CA)일 때만 -->
+    <div class="divided" th:if="${cert.certType != null and cert.certType.name() != 'LEAF'}">
+        <div class="card-head">
+            <h3 class="card-sub">CRL</h3>
+            <form method="post" th:action="@{/pki/certificates/{serial}/crl(serial=${cert.serial})}">
+                <button class="btn btn-outline btn-sm" type="submit">CRL 즉시 발행</button>
+            </form>
+        </div>
+        <div class="hint">이 CA 인증서가 발급한 인증서들의 폐지 목록을 지금 바로 발행합니다.</div>
     </div>
 
     <!-- 상태 조회 (OCSP) -->

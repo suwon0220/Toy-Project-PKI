@@ -1,7 +1,6 @@
 package toy.pki.ca.web.profile;
 
 import java.util.List;
-import java.util.UUID;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -20,9 +19,10 @@ import toy.pki.ca.domain.certificate.CertType;
 import toy.pki.ca.domain.extension.KeyUsageBit;
 import toy.pki.ca.domain.extension.StandardExtendedKeyUsage;
 import toy.pki.ca.domain.profile.Profile;
+import toy.pki.ca.domain.profile.ProfileMapper;
 import toy.pki.ca.domain.profile.ProfileService;
-import toy.pki.ca.web.profile.form.ProfileSaveForm;
-import toy.pki.ca.web.profile.form.ProfileUpdateForm;
+import toy.pki.ca.web.profile.dto.ProfileSaveForm;
+import toy.pki.ca.web.profile.dto.ProfileUpdateForm;
 import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 
 @Slf4j
@@ -60,12 +60,11 @@ public class ProfileController {
 
     @GetMapping("")
     public String profiles(
-        @RequestParam(required = false) UUID profileId,
+        @RequestParam(required = false) Long profileId,
         Model model
     ) {
-        ProfileUpdateForm profileUpdateForm = profileId != null
-                                              ? profileService.getProfile(profileId)
-                                              : new ProfileUpdateForm();
+        Profile profile = profileId != null ? profileService.getProfile(profileId): null;
+        ProfileUpdateForm profileUpdateForm = ProfileMapper.toUpdateForm(profile);
         model.addAttribute("profileUpdateForm", profileUpdateForm);
         return "/pki/profiles/index";
     }
@@ -81,9 +80,19 @@ public class ProfileController {
             log.error("Binding errors: {}", bindingResult.getAllErrors());
             return "pki/profiles/index";
         }
-        UUID profileId = profileService.createProfile(form);
+        Long profileId = profileService.createProfile(form);
         redirectAttributes.addFlashAttribute("success", "Profile created successfully");
         // redirectAttributes.addAttribute("profileId", profileId);
+        return "redirect:/pki/profiles";
+    }
+
+    @PostMapping("/activate")
+    public String activate(
+        @RequestParam Long profileId,
+        RedirectAttributes redirectAttributes
+    ) {
+        profileService.activateProfile(profileId);
+        redirectAttributes.addFlashAttribute("success", "Profile activated successfully");
         return "redirect:/pki/profiles";
     }
 

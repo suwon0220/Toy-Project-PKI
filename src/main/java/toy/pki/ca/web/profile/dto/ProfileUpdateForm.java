@@ -1,15 +1,16 @@
-package toy.pki.ca.web.profile.form;
+package toy.pki.ca.web.profile.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import toy.pki.ca.domain.certificate.CertType;
 import toy.pki.ca.domain.certificate.DistinguishedName;
 import toy.pki.ca.domain.extension.AuthorityInformationAccessProfile;
@@ -20,10 +21,13 @@ import toy.pki.ca.domain.extension.StandardExtendedKeyUsage;
 import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
-public class ProfileSaveForm {
-    private final UUID profileId = UUID.randomUUID();
-    String alias;
+public class ProfileUpdateForm {
+    @NotNull
+    Long id;
+
+    @NotBlank String alias;
     String description;
 
     @NotNull

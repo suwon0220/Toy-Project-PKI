@@ -19,7 +19,7 @@ class ManagedKeyRepositoryTest {
     ManagedKeyRepository managedKeyRepository;
 
     @AfterEach
-    void afterEach() {
+    void tearDown() {
         managedKeyRepository.clearStore();
     }
 
