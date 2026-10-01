@@ -9,10 +9,17 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 
-import lombok.RequiredArgsConstructor;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.cert.CertIOException;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -22,11 +29,11 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import toy.pki.ca.domain.certificate.CertType;
-import toy.pki.ca.domain.certificate.DistinguishedName;
 import toy.pki.ca.domain.certificate.ManagedX509Certificate;
 import toy.pki.ca.domain.certificate.ManagedX509CertificateService;
 import toy.pki.ca.domain.profile.Profile;
@@ -34,13 +41,14 @@ import toy.pki.ca.domain.profile.ProfileService;
 import toy.pki.ca.domain.profile.ProfileStatus;
 import toy.pki.ca.web.certificate.dto.CertificateFilter;
 import toy.pki.ca.web.certificate.dto.CertificateIssueForm;
-import toy.pki.ca.web.certificate.dto.CertificatePreview;
 import toy.pki.ca.web.certificate.dto.CertificateSummary;
 import toy.pki.ca.web.certificate.dto.KeyMode;
+import toy.pki.kms.domain.algorithm.DigestAlgorithm;
 import toy.pki.kms.domain.key.KeyGenerationService;
 import toy.pki.kms.domain.key.KeyID;
 import toy.pki.kms.domain.key.KeyManagingService;
 import toy.pki.kms.domain.key.ManagedKey;
+import toy.pki.kms.domain.parameter.SignatureParameter;
 import toy.pki.kms.domain.request.KeyGenerationRequest;
 
 
@@ -111,7 +119,7 @@ public class CertificateController {
         BindingResult bindingResult,
         RedirectAttributes redirectAttributes,
         Model model
-    ) throws GeneralSecurityException {
+    ) throws GeneralSecurityException, CertIOException {
         log.info("Issuing certificate with form: {}", certificateIssueForm);
         // TODO: remove direct dependency on Bounty Castle and implement certificate issuance logic in CertificateService
         if (bindingResult.hasErrors()) {
@@ -186,12 +194,77 @@ public class CertificateController {
 
         JcaX509ExtensionUtils jcaX509ExtensionUtils = new JcaX509ExtensionUtils();
 
+        // Basic Constraints Extension
+        jcaX509v3CertificateBuilder.addExtension(
+            Extension.basicConstraints,
+            true,
+            new BasicConstraints(CertType.ROOT_CA.equals(profile.getCertType()))
+        );
+
+        // Key Usage Extension
+        jcaX509v3CertificateBuilder.addExtension(
+            Extension.keyUsage,
+            true,
+            profile.getKeyUsage()
+        );
+
+        // SKID
+        jcaX509v3CertificateBuilder.addExtension(
+            Extension.subjectKeyIdentifier,
+            false,
+            jcaX509ExtensionUtils.createSubjectKeyIdentifier(
+                managedKey != null
+                ? managedKey.getKeyPair().getPublic()
+                : keyManagingService.getPublicKey(new KeyID(certificateIssueForm.getKmsKeyId()))
+            )
+        );
+
+        //AKID
+        if (!CertType.ROOT_CA.equals(profile.getCertType())) {
+            // LEAF or INTERMEDIATE
+            ManagedX509Certificate issuerCertificate = managedX509CertificateService.findById(certificateIssueForm.getIssuerCertificateId());
+            jcaX509v3CertificateBuilder.addExtension(
+                Extension.authorityKeyIdentifier,
+                false,
+                jcaX509ExtensionUtils.createAuthorityKeyIdentifier(issuerCertificate.getCertificate())
+            );
+        } else {
+            // ROOT
+            jcaX509v3CertificateBuilder.addExtension(
+                Extension.authorityKeyIdentifier,
+                false,
+                jcaX509ExtensionUtils.createAuthorityKeyIdentifier(
+                    managedKey != null
+                    ? managedKey.getKeyPair().getPublic()
+                    : keyManagingService.getPublicKey(new KeyID(certificateIssueForm.getKmsKeyId()))
+                )
+            );
+        }
+
+        // ---
+
+        SignatureParameter parameter = new SignatureParameter(
+            SignatureAlgorithm.RSA,
+            DigestAlgorithm.SHA256
+        );
+
+        ContentSigner contentSigner = new KmsContentSigner(
+            signatureService,
+            signingKeyId,
+            parameter
+        );
+
+        X509CertificateHolder certificateHolder =
+            jcaX509v3CertificateBuilder.build(contentSigner);
+
+        X509Certificate certificate = new JcaX509CertificateConverter()
+            .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+            .getCertificate(certificateHolder);
+        // ---
+        
         if (KeyMode.NEW.equals(certificateIssueForm.getKeyMode()) && managedKey != null) {
             keyManagingService.saveKey(managedKey);
         }
-        managedX509CertificateService.save(jcaX509v3CertificateBuilder, profile, managedKey != null ? managedKey.getId() : new KeyID(certificateIssueForm.getKmsKeyId()));
         return "redirect:/pki/certificates";
     }
-
-    
 }
