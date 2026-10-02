@@ -1,22 +1,16 @@
 package toy.pki.kms.domain.key;
 
-import java.security.KeyPair;
-import java.util.Date;
-import java.util.UUID;
-
-import lombok.AllArgsConstructor;
+import java.time.Instant;
+import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
 
 @Getter
 @RequiredArgsConstructor
-@AllArgsConstructor
 public class ManagedKey {
-    private final KeyID id = new KeyID(-1L);
-    private final Date createdAt = new Date();
-    private final KeyAlgorithmPreset keyAlgorithmPreset;
-    private final KeyPair keyPair;
-    @Setter private String displayName;
+    private final KeyId keyId;
+    private final KeyAlgorithm keyAlgorithm;
+    private final KeyMaterialRef keyMaterialRef;
+    private final KeyProviderId keyProviderId;
+    private final Instant createdAt;
 }

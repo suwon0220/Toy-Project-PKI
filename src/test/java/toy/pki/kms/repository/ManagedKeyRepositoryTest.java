@@ -5,10 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import toy.pki.kms.domain.algorithm.KeyAlgorithmPreset;
-import toy.pki.kms.domain.key.ManagedKey;
 
 import java.util.List;
-import toy.pki.kms.domain.key.ManagedKeyRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
