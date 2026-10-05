@@ -3,8 +3,7 @@
   PKI 콘솔 공통 레이아웃.
   사용: <html th:replace="~{pki/fragments/layout :: shell('인증서 관리', ~{::main}, 'certificates')}">
   activeMenu: certificates | profiles | kms | logs
-  공통 Model(선택): flashSuccess · message · success, flashError (String), currentUser, currentRole (String)
-    - message: KeyController 키 생성 성공 flash, success: ProfileController 생성 성공 flash
+  공통 Model(선택): flashSuccess, flashError (String), currentUser, currentRole (String)
 */-->
 <html lang="ko" th:fragment="shell(title, content, activeMenu)" xmlns:th="http://www.thymeleaf.org">
 <head>
@@ -38,7 +37,7 @@
     </aside>
 
     <div class="main"
-         th:with="okMessage=${flashSuccess} ?: (${message} ?: ${success})">
+         th:with="okMessage=${flashSuccess}">
         <div class="alert alert-ok" role="status" th:if="${okMessage}">
             <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                  stroke-width="2" viewBox="0 0 24 24" width="18">

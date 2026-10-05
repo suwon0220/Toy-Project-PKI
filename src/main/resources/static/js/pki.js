@@ -4,7 +4,7 @@
  *   - [data-sort-list]      목록 헤더 클릭 정렬 (서버 정렬 파라미터가 없는 화면)
  *   - [data-filter-input]   목록 검색 · 선택 필터 (화면에 이미 그려진 행만 거른다)
  *   - [data-confirm-input]  확인 문구를 정확히 입력해야 위험 버튼 활성화
- *   - [data-pubkey-*]       키 팝업의 공개키 SHA-256 지문 · .pem 다운로드 (publicKeyPem 이 있을 때)
+ *   - [data-pubkey-*]       키 팝업의 공개키 SHA-256 지문 (publicKeyPem 이 있을 때)
  *   - [data-repeat]         추가 EKU 입력 행 추가
  */
 (function () {
@@ -161,20 +161,6 @@
         });
     }
 
-    function initPemDownload(button) {
-        button.addEventListener('click', function () {
-            var pem = button.getAttribute('data-pem') || '';
-            var url = URL.createObjectURL(new Blob([pem], {type: 'application/x-pem-file'}));
-            var link = document.createElement('a');
-            link.href = url;
-            link.download = button.getAttribute('data-filename') || 'public-key.pem';
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
-        });
-    }
-
     /* ---------- 입력 행 추가 ---------- */
     function initRepeat(container) {
         var add = container.querySelector('[data-repeat-add]');
@@ -221,6 +207,5 @@
         document.querySelectorAll('[data-confirm-input]').forEach(initConfirm);
         document.querySelectorAll('[data-repeat]').forEach(initRepeat);
         document.querySelectorAll('[data-pubkey-fingerprint]').forEach(initFingerprint);
-        document.querySelectorAll('[data-pubkey-download]').forEach(initPemDownload);
     });
 })();

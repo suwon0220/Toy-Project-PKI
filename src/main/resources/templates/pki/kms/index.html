@@ -1,291 +1,585 @@
-<!DOCTYPE html>
+<!doctype html>
 <!--/*
-  KeyController 현재 구현에 맞춘 화면.
-  GET  /pki/kms?keyAlgorithm=&keyAlgorithmPreset=              → pki/kms/index
-  GET  /pki/kms?opKeyId={uuid}&op=sign|verify|info|delete      → 같은 뷰 + 키 팝업
-       (컨트롤러는 opKeyId · op 를 받지 않는다. 뷰가 keys 목록에서 해당 키를 찾아 팝업을 그린다.
-        KeyQuery.keyId · signKeyId · deleteKeyId 는 KeyID 변환기가 없어 URL 에 넣지 않는다.)
-  POST /pki/kms                                                (키 생성: displayName, keyAlgorithmPreset)
-  Model: keys(List<ManagedKey>, POST 검증 실패 시 없음), keyQuery(KeyQuery), algorithms(KeyAlgorithm[]),
-         profiles(KeyAlgorithmPreset[]), signatureAlgorithms(SignatureAlgorithm[]),
-         keyGenerationRequest(KeyGenerationRequest record)
+  GET /pki/kms?keyAlgorithm=&keyword= → 별칭 또는 키 ID 검색
+  GET /pki/kms?opKeyId=&op=sign|verify|info|delete → 키 팝업
+  POST /pki/kms → 키 생성 (providerId, keyAlgorithmPreset, alias)
+  Model: keys, keyAlgorithmLabels, keyQuery, algorithms, keyAlgorithmPresets, signatureAlgorithms, hashAlgorithms,
+         keyGenerationRequest
   선택(없어도 됨): signResult, verifyResult — 서명 · 검증 요청 처리 후 같은 뷰로 돌려줄 때
+  signatureForm — 해당 키의 원본 데이터, 서명값, 알고리즘, 해시, 입력 형식을 복원한다.
   팝업의 서명 · 검증 · 삭제 폼은 API 명세 경로(/pki/kms/keys/{keyId}/sign|verify|delete)로 보낸다 — 컨트롤러 구현 필요.
-  선택: publicKeyPem(String) — 팝업 키의 공개키 PEM. 있으면 키 정보 탭에 PEM · SHA-256 지문(pki.js 계산)과
-        다운로드 버튼을 표시한다. Thymeleaf 3.1 은 뷰에서 java.security.KeyPair 접근을 막으므로 컨트롤러가 넣어야 한다.
+  서명 · 검증 폼의 hashAlgorithm: 기본 EC_P384 → SHA384, EC_P521 → SHA512, 그 외 SHA256.
+        Ed25519 · Ed448 키면 select 가 disabled 라 전송되지 않는다 (null).
+  선택: publicKeyPem(String) — 팝업 키의 공개키 PEM. 있으면 키 정보 탭에 PEM · SHA-256 지문(pki.js 계산)을
+        표시한다. Thymeleaf 3.1 은 뷰에서 java.security.KeyPair 접근을 막으므로 컨트롤러가 넣어야 한다.
 */-->
-<html lang="ko" th:replace="~{pki/fragments/layout :: shell('키 관리', ~{::main}, 'kms')}"
-      xmlns:th="http://www.thymeleaf.org">
-<body>
-<main class="stack"
+<html
+  lang="ko"
+  th:replace="~{pki/fragments/layout :: shell('키 관리', ~{::main}, 'kms')}"
+  xmlns:th="http://www.thymeleaf.org"
+>
+  <body>
+    <main
+      class="stack"
       th:with="keyList=${keys} ?: ${ {} },
                opKeyId=${param.opKeyId != null} ? ${param.opKeyId[0]} : null,
                opMode=${param.op != null and {'sign', 'verify', 'info', 'delete'}.contains(param.op[0])} ? ${param.op[0]} : 'sign',
-               opKey=${opKeyId != null} ? ${keyList.^[id.value().toString() == #vars.opKeyId]} : null,
+               opKey=${opKeyId != null} ? ${keyList.^[keyId.value() == #vars.opKeyId]} : null,
                qAlgorithm=${keyQuery?.keyAlgorithm},
-               qPreset=${keyQuery?.keyAlgorithmPreset},
-               defaultSig=${ {'RSA_2048':'SHA256withRSA', 'RSA_3072':'SHA256withRSA', 'RSA_4096':'SHA256withRSA',
-                              'EC_P256':'SHA256withECDSA', 'EC_P384':'SHA384withECDSA', 'EC_P521':'SHA512withECDSA',
-                              'ED25519':'Ed25519', 'ED448':'Ed448'} },
-               keySpec=${ {'RSA_2048':'2048 bit', 'RSA_3072':'3072 bit', 'RSA_4096':'4096 bit',
-                           'EC_P256':'secp256r1', 'EC_P384':'secp384r1', 'EC_P521':'secp521r1',
-                           'ED25519':'255 bit', 'ED448':'448 bit'} }">
-
-    <div class="page-head">
+               qKeyword=${#strings.isEmpty(#strings.trim(keyQuery?.searchKeyword))} ? null : ${keyQuery.searchKeyword},
+               defaultSig=${ {'RSA':'RSA_PKCS1_V1_5', 'EC':'ECDSA', 'Ed25519':'Ed25519', 'Ed448':'Ed448'} }"
+    >
+      <div class="page-head">
         <div class="crumbs">PKI / 키 관리</div>
         <div class="page-title-row">
-            <h1 class="page-title">키 관리</h1>
+          <h1 class="page-title">키 관리</h1>
         </div>
-    </div>
+      </div>
 
-    <!-- 필터: keyAlgorithm · keyAlgorithmPreset 은 서버(KeyQuery), 검색어는 화면에서 바로 거른다 -->
-    <div class="filter-bar" th:unless="${#lists.isEmpty(keyList) and qAlgorithm == null and qPreset == null}">
+      <!-- 필터: keyAlgorithm · keyword 를 서버의 검색 조건으로 전달 -->
+      <div
+        class="filter-bar"
+        th:unless="${#lists.isEmpty(keyList) and qAlgorithm == null and qKeyword == null}"
+      >
         <form method="get" role="search" th:action="@{/pki/kms}">
-            <div class="field field-sm grow">
-                <label class="lbl" for="kq">검색</label>
-                <input autocomplete="off" class="f" data-filter-input="#key-list" id="kq" placeholder="별칭 · 키 ID"
-                       type="search">
-            </div>
-            <div class="field field-sm w-170">
-                <label class="lbl" for="keyAlgorithm">알고리즘</label>
-                <select class="f" id="keyAlgorithm" name="keyAlgorithm">
-                    <option value="">전체</option>
-                    <option th:each="a : ${algorithms}" th:selected="${a == qAlgorithm}" th:text="${a}" th:value="${a}">EC</option>
-                </select>
-            </div>
-            <div class="field field-sm w-170">
-                <label class="lbl" for="keyAlgorithmPreset">프리셋</label>
-                <select class="f" id="keyAlgorithmPreset" name="keyAlgorithmPreset">
-                    <option value="">전체</option>
-                    <option th:each="p : ${profiles}" th:selected="${p == qPreset}"
-                            th:text="${p.algorithm.name() == 'EC'} ? |EC ${p.displayName}| : ${p.displayName}"
-                            th:value="${p}">EC P256
-                    </option>
-                </select>
-            </div>
-            <button class="btn btn-dark" type="submit">조회</button>
+          <div class="field field-sm grow">
+            <label class="lbl" for="kq">검색</label>
+            <input
+              autocomplete="off"
+              class="f"
+              id="kq"
+              name="keyword"
+              placeholder="별칭 또는 키 ID 일부 입력"
+              th:value="${qKeyword}"
+              type="search"
+            />
+          </div>
+          <div class="field field-sm w-170">
+            <label class="lbl" for="keyAlgorithm">알고리즘</label>
+            <select class="f" id="keyAlgorithm" name="keyAlgorithm">
+              <option value="">전체</option>
+              <option
+                th:each="a : ${algorithms}"
+                th:selected="${a == qAlgorithm}"
+                th:text="${a}"
+                th:value="${a}"
+              >
+                EC
+              </option>
+            </select>
+          </div>
+          <button class="btn btn-dark" type="submit">조회</button>
         </form>
-    </div>
+      </div>
 
-    <!-- 키 목록: 행 전체가 팝업 링크 -->
-    <section class="card card-flush" data-sort-list="createdAt,asc" id="key-list">
+      <!-- 키 목록: 행 전체가 팝업 링크 -->
+      <section
+        class="card card-flush"
+        data-sort-list="createdAt,asc"
+        id="key-list"
+      >
         <div class="list-head">
-            <h2 class="card-title">키 목록</h2>
-            <span class="hint" data-filter-count th:text="|${#lists.size(keyList)}개|">0개</span>
+          <h2 class="card-title">키 목록</h2>
+          <span
+            class="hint"
+            data-filter-count
+            th:text="|${#lists.size(keyList)}개|"
+            >0개</span
+          >
         </div>
-        <div class="glist" style="--cols: minmax(0, 1.3fr) 150px 170px 160px" th:unless="${#lists.isEmpty(keyList)}">
-            <div class="glist-head">
-                <button class="sort" data-sort-key="displayName" type="button">별칭<span aria-hidden="true" class="arrow">↕</span></button>
-                <button class="sort" data-sort-key="keyId" type="button">키 ID<span aria-hidden="true" class="arrow">↕</span></button>
-                <button class="sort" data-sort-key="algorithm" type="button">알고리즘<span aria-hidden="true" class="arrow">↕</span></button>
-                <button class="sort" data-sort-key="createdAt" type="button">생성일<span aria-hidden="true" class="arrow">↕</span></button>
-            </div>
-            <div data-sort-body>
-                <a class="glist-row" th:classappend="${kid == opKeyId} ? (${opMode == 'delete'} ? 'is-danger' : 'is-selected')"
-                   th:aria-label="|${displayName} 키 열기|"
-                   th:attr="data-k-display-name=${displayName}, data-k-key-id=${kid}, data-k-algorithm=${algLabel},
-                            data-k-created-at=${#dates.format(k.createdAt, 'yyyy-MM-dd HH:mm:ss')},
-                            data-search=${displayName + ' ' + kid}"
-                   th:each="k : ${keyList}"
-                   th:href="@{/pki/kms(opKeyId=${kid}, op='sign', keyAlgorithm=${qAlgorithm}, keyAlgorithmPreset=${qPreset})}"
-                   th:with="kid=${k.id.value().toString()},
-                            displayName=${k.displayName} ?: '(별칭 없음)',
-                            algLabel=${k.keyAlgorithmPreset.algorithm.name() == 'EC'} ? |EC ${k.keyAlgorithmPreset.displayName}| : ${k.keyAlgorithmPreset.displayName}">
-                    <span class="glist-primary" th:text="${displayName}">tls-issuing-ca</span>
-                    <code class="glist-mono muted" th:text="|${#strings.substring(kid, 0, 8)}-…|" th:title="${kid}">7d1e2c4a-…</code>
-                    <code class="glist-mono" th:text="${algLabel}">EC P384</code>
-                    <span class="glist-mono" th:text="${#dates.format(k.createdAt, 'yyyy-MM-dd HH:mm')}">2026-03-02 09:12</span>
-                </a>
-            </div>
-            <div class="empty-state empty-sm" data-filter-empty hidden>
-                <div class="empty-title">조건에 맞는 키가 없습니다</div>
-                <div class="hint">검색어를 지우거나 다른 알고리즘을 고르세요.</div>
-            </div>
-        </div>
-        <div class="empty-state empty-sm" th:if="${#lists.isEmpty(keyList) and (qAlgorithm != null or qPreset != null)}">
+        <div
+          class="glist"
+          style="--cols: minmax(0, 1fr) minmax(0, 1.4fr) 120px 130px 190px; --list-min-width: 880px"
+          th:unless="${#lists.isEmpty(keyList)}"
+        >
+          <div class="glist-head">
+            <button class="sort" data-sort-key="alias" type="button">
+              별칭<span aria-hidden="true" class="arrow">↕</span>
+            </button>
+            <button class="sort" data-sort-key="keyId" type="button">
+              키 ID<span aria-hidden="true" class="arrow">↕</span>
+            </button>
+            <button class="sort" data-sort-key="algorithm" type="button">
+              알고리즘<span aria-hidden="true" class="arrow">↕</span>
+            </button>
+            <button class="sort" data-sort-key="provider" type="button">
+              Provider<span aria-hidden="true" class="arrow">↕</span>
+            </button>
+            <button class="sort" data-sort-key="createdAt" data-sort-type="number" type="button">
+              생성일<span aria-hidden="true" class="arrow">↕</span>
+            </button>
+          </div>
+          <div data-sort-body>
+            <a
+              class="glist-row"
+              th:classappend="${kid == opKeyId} ? (${opMode == 'delete'} ? 'is-danger' : 'is-selected')"
+              th:aria-label="|${alias != null ? alias : kid} 키 열기|"
+              th:attr="data-k-alias=${alias} ?: '', data-k-provider=${providerName}, data-k-key-id=${kid}, data-k-algorithm=${algLabel},
+                            data-k-created-at=${k.createdAt.toEpochMilli()},
+                            data-search=${(alias != null ? alias : '') + ' ' + providerName + ' ' + kid}"
+              th:each="k : ${keyList}"
+              th:href="@{/pki/kms(opKeyId=${kid}, op='sign', keyAlgorithm=${qAlgorithm}, keyword=${qKeyword})}"
+              th:with="kid=${k.keyId.value()},
+                            providerName=${k.keyProviderId.value()},
+                            alias=${k.alias},
+                            algLabel=${keyAlgorithmLabels[k.keyId]}"
+            >
+              <span
+                class="glist-primary"
+                style="
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
+                "
+                th:text="${alias} ?: '(별칭 없음)'"
+                th:title="${alias} ?: ${kid}"
+                >tls-issuing-ca</span
+              >
+              <code class="glist-mono glist-key-id" th:text="${#strings.abbreviate(kid, 24)}" th:title="${kid}">SHA-256:…</code>
+              <code class="glist-mono" th:text="${algLabel}">EC P384</code>
+              <span class="glist-mono" th:text="${providerName}"
+                >in-memory</span
+              >
+              <span
+                class="glist-mono"
+                th:text="${#temporals.format(k.createdAt, 'yyyy-MM-dd HH:mm:ss.SSS', 'Asia/Seoul')}"
+                >2026-03-02 09:12:44.123</span
+              >
+            </a>
+          </div>
+          <div class="empty-state empty-sm" data-filter-empty hidden>
             <div class="empty-title">조건에 맞는 키가 없습니다</div>
-            <a th:href="@{/pki/kms}">필터 지우기</a>
+            <div class="hint">검색어를 지우거나 다른 알고리즘을 고르세요.</div>
+          </div>
         </div>
-        <div class="empty-state" th:if="${#lists.isEmpty(keyList) and qAlgorithm == null and qPreset == null}">
-            <div class="empty-title">등록된 키가 없습니다</div>
-            <div class="hint">아래 [키 생성]에서 첫 키를 만드세요. CA 서명키도 여기서 만듭니다.</div>
+        <div
+          class="empty-state empty-sm"
+          th:if="${#lists.isEmpty(keyList) and (qAlgorithm != null or qKeyword != null)}"
+        >
+          <div class="empty-title">조건에 맞는 키가 없습니다</div>
+          <a th:href="@{/pki/kms}">필터 지우기</a>
         </div>
-    </section>
+        <div
+          class="empty-state"
+          th:if="${#lists.isEmpty(keyList) and qAlgorithm == null and qKeyword == null}"
+        >
+          <div class="empty-title">등록된 키가 없습니다</div>
+          <div class="hint">
+            아래 [키 생성]에서 첫 키를 만드세요. CA 서명키도 여기서 만듭니다.
+          </div>
+        </div>
+      </section>
 
-    <!-- 키 생성: KeyGenerationRequest 는 record 라 th:field(게터 필요) 대신 name / selected 로 바인딩 -->
-    <form class="card" method="post" style="padding: 22px; gap: 14px" th:action="@{/pki/kms}">
+      <!-- 키 생성: 요청 record의 필드명으로 바인딩 -->
+      <form
+        class="card"
+        method="post"
+        style="padding: 22px; gap: 14px"
+        th:action="@{/pki/kms}"
+      >
         <div class="card-head" style="align-items: baseline">
-            <h2 class="card-title">키 생성</h2>
-            <span class="hint">개인키는 내장 KMS 키 저장소 안에서만 만들어지고 사용됩니다.</span>
+          <h2 class="card-title">키 생성</h2>
+          <span class="hint"
+            >개인키는 내장 KMS 키 저장소 안에서만 만들어지고 사용됩니다.</span
+          >
         </div>
-        <div class="alert alert-err" role="alert" th:if="${#fields.hasErrors('keyGenerationRequest.*')}">
-            <ul>
-                <li th:each="e : ${#fields.errors('keyGenerationRequest.*')}" th:text="${e}">오류</li>
-            </ul>
+        <div
+          class="alert alert-err"
+          role="alert"
+          th:if="${#fields.hasErrors('keyGenerationRequest.*')}"
+        >
+          <ul>
+            <li
+              th:each="e : ${#fields.errors('keyGenerationRequest.*')}"
+              th:text="${e}"
+            >
+              오류
+            </li>
+          </ul>
         </div>
+        <input
+          name="providerId"
+          th:value="${keyGenerationRequest?.providerId()} ?: 'in-memory'"
+          type="hidden"
+        />
         <div class="gen-row">
-            <div class="field field-sm">
-                <label class="lbl" for="displayName-new">별칭</label>
-                <input autocomplete="off" class="f" id="displayName-new" maxlength="64" name="displayName"
-                       placeholder="v2g-subca-2027" spellcheck="false"
-                       th:value="${keyGenerationRequest?.displayName()}" type="text">
-            </div>
-            <div class="field field-sm">
-                <label class="lbl" for="keyAlgorithmPreset-new">알고리즘</label>
-                <select class="f" id="keyAlgorithmPreset-new" name="keyAlgorithmPreset" required>
-                    <option th:each="p : ${profiles}"
-                            th:selected="${keyGenerationRequest != null and keyGenerationRequest.keyAlgorithmPreset() == p}"
-                            th:text="${p.algorithm.name() == 'EC'} ? |EC ${p.displayName}| : ${p.displayName}"
-                            th:value="${p}">EC P256
-                    </option>
-                </select>
-            </div>
-            <button class="btn btn-primary btn-gen" type="submit">생성</button>
+          <div class="field field-sm">
+            <label class="lbl" for="alias-new">별칭 (선택)</label>
+            <input
+              autocomplete="off"
+              class="f"
+              id="alias-new"
+              maxlength="64"
+              name="alias"
+              placeholder="tls-issuing-ca"
+              th:value="${keyGenerationRequest?.alias()}"
+              type="text"
+            />
+          </div>
+          <div class="field field-sm">
+            <label class="lbl" for="keyAlgorithmPreset-new">알고리즘</label>
+            <select
+              class="f"
+              id="keyAlgorithmPreset-new"
+              name="keyAlgorithmPreset"
+              required
+            >
+              <option
+                th:each="p : ${keyAlgorithmPresets}"
+                th:selected="${keyGenerationRequest != null and keyGenerationRequest.keyAlgorithmPreset() == p}"
+                th:text="${p}"
+                th:value="${p}"
+              >
+                EC P256
+              </option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-gen" type="submit">생성</button>
         </div>
-    </form>
+      </form>
 
-    <!--/* 키 팝업: ?opKeyId= 가 목록의 키와 일치할 때. 닫기(X)로만 닫힌다 (배경 클릭 무시). */-->
-    <div class="overlay" th:if="${opKey != null}"
-         th:with="okid=${opKey.id.value().toString()},
-                  oDisplayName=${opKey.displayName} ?: '(별칭 없음)',
-                  oPreset=${opKey.keyAlgorithmPreset},
-                  oAlg=${oPreset.algorithm.name() == 'EC'} ? |EC ${oPreset.displayName}| : ${oPreset.displayName},
-                  oSig=${defaultSig[oPreset.name()]},
-                  confirmValue=${opKey.displayName} ?: ${#strings.substring(okid, 0, 8)}">
-        <section aria-labelledby="op-title" aria-modal="true" class="modal" role="dialog">
-            <div class="modal-head">
-                <h2 class="modal-title" id="op-title">
-                    <span th:text="${oDisplayName}">tls-issuing-ca</span>
-                    <span class="modal-title-sub" th:text="|· ${oAlg}|">· EC P384</span>
-                </h2>
-                <a aria-label="닫기" class="modal-close" th:href="@{/pki/kms(keyAlgorithm=${qAlgorithm}, keyAlgorithmPreset=${qPreset})}">
-                    <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" stroke-linecap="round"
-                         stroke-width="2" viewBox="0 0 24 24" width="20">
-                        <line x1="6" x2="18" y1="6" y2="18"></line>
-                        <line x1="18" x2="6" y1="6" y2="18"></line>
-                    </svg>
-                </a>
+      <!--/* 키 팝업: ?opKeyId= 가 목록의 키와 일치할 때. 닫기(X)로만 닫힌다 (배경 클릭 무시). */-->
+      <div
+        class="overlay"
+        th:if="${opKey != null}"
+        th:with="okid=${opKey.keyId.value()},
+                  oForm=${signatureForm != null and signatureForm.keyId == okid} ? ${signatureForm} : null,
+                  oAlg=${opKey.keyAlgorithm},
+                  oAlgorithmLabel=${keyAlgorithmLabels[opKey.keyId]},
+                  oSig=${oForm?.signatureAlgorithm} ?: ${defaultSig[oAlg.name()]},
+                  oEdDsa=${oAlg.name() == 'Ed25519' or oAlg.name() == 'Ed448'},
+                  oHash=${oForm != null and oForm.hashAlgorithm != null ? oForm.hashAlgorithm : (oAlgorithmLabel == 'EC_P384' ? 'SHA384' : (oAlgorithmLabel == 'EC_P521' ? 'SHA512' : 'SHA256'))},
+                  oEncoding=${oForm?.encoding} ?: 'TEXT',
+                  confirmValue=${okid}"
+      >
+        <section
+          aria-labelledby="op-title"
+          aria-modal="true"
+          class="modal"
+          role="dialog"
+        >
+          <div class="modal-head">
+            <h2 class="modal-title" id="op-title">
+              <span th:text="${opKey.alias} ?: ${#strings.abbreviate(okid, 24)}"
+                >SHA-256:…</span
+              >
+              <span class="modal-title-sub" th:text="|· ${oAlgorithmLabel}|"
+                >· EC_P384</span
+              >
+            </h2>
+            <a
+              aria-label="닫기"
+              class="modal-close"
+              th:href="@{/pki/kms(keyAlgorithm=${qAlgorithm}, keyword=${qKeyword})}"
+            >
+              <svg
+                aria-hidden="true"
+                fill="none"
+                height="20"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="20"
+              >
+                <line x1="6" x2="18" y1="6" y2="18"></line>
+                <line x1="18" x2="6" y1="6" y2="18"></line>
+              </svg>
+            </a>
+          </div>
+
+          <nav aria-label="키 작업" class="modal-tabs">
+            <a
+              th:attr="aria-current=${opMode == t[0]} ? 'page'"
+              th:each="t : ${ { {'sign', '서명 요청'}, {'verify', '검증 요청'}, {'info', '키 정보'} } }"
+              th:href="@{/pki/kms(opKeyId=${okid}, op=${t[0]}, keyAlgorithm=${qAlgorithm}, keyword=${qKeyword})}"
+              th:text="${t[1]}"
+              >서명 요청</a
+            >
+          </nav>
+
+          <!-- 서명 · 검증 요청 -->
+          <form
+            class="modal-body"
+            method="post"
+            th:if="${opMode == 'sign' or opMode == 'verify'}"
+            th:action="${opMode == 'sign'} ? @{/pki/kms/keys/{id}/sign(id=${okid})} : @{/pki/kms/keys/{id}/verify(id=${okid})}"
+          >
+            <div class="grid-sig">
+              <div class="field field-sm">
+                <label class="lbl" for="signatureAlgorithm"
+                  >서명 알고리즘</label
+                >
+                <select
+                  class="f mono"
+                  id="signatureAlgorithm"
+                  name="signatureAlgorithm"
+                  style="font-size: 12.5px"
+                >
+                  <option
+                    th:each="sa : ${signatureAlgorithms}"
+                    th:if="${(oAlg.name() == 'RSA' and {'RSA_PKCS1_V1_5', 'RSA_PSS'}.contains(sa.name()))
+                                             or (oAlg.name() == 'EC' and sa.name() == 'ECDSA')
+                                             or sa.name() == oAlg.name()}"
+                    th:selected="${sa.name() == oSig}"
+                    th:text="${sa}"
+                    th:value="${sa}"
+                  >
+                    ECDSA
+                  </option>
+                </select>
+                <div class="hint" th:text="|기본: ${oSig}|">
+                  기본: ECDSA
+                </div>
+              </div>
+              <div class="field field-sm">
+                <label class="lbl" for="hashAlgorithm">해시</label>
+                <select
+                  class="f mono"
+                  id="hashAlgorithm"
+                  name="hashAlgorithm"
+                  style="font-size: 12.5px"
+                  th:disabled="${oEdDsa}"
+                >
+                  <option th:if="${oEdDsa}" value="">알고리즘 내장</option>
+                  <th:block th:unless="${oEdDsa}">
+                    <option
+                      th:each="h : ${hashAlgorithms}"
+                      th:selected="${h.name() == oHash}"
+                      th:text="${h}"
+                      th:value="${h}"
+                    >
+                      SHA384
+                    </option>
+                  </th:block>
+                </select>
+                <div
+                  class="hint"
+                  th:text="${oEdDsa} ? 'EdDSA는 해시 고정' : (${oAlg.name() == 'EC'} ? '기본: 곡선 크기에 맞춤' : 'PSS면 MGF1도 같은 해시')"
+                >
+                  기본: 곡선 크기에 맞춤
+                </div>
+              </div>
+              <div class="field field-sm">
+                <label class="lbl" for="encoding">입력 형식</label>
+                <select class="f" id="encoding" name="encoding">
+                  <option value="TEXT" th:selected="${oEncoding == 'TEXT'}">TEXT</option>
+                  <option value="BASE64" th:selected="${oEncoding == 'BASE64'}">BASE64</option>
+                  <option value="HEX" th:selected="${oEncoding == 'HEX'}">HEX</option>
+                </select>
+              </div>
+            </div>
+            <div class="field field-sm">
+              <label
+                class="lbl"
+                for="data"
+                th:text="${opMode == 'verify'} ? '원본 데이터' : '서명할 데이터'"
+                >서명할 데이터</label
+              >
+              <textarea
+                class="f"
+                id="data"
+                name="data"
+                placeholder="hello pki"
+                required
+                rows="3"
+                spellcheck="false"
+                th:text="${oForm?.data}"
+              ></textarea>
+            </div>
+            <div class="field field-sm" th:if="${opMode == 'verify'}">
+              <label class="lbl" for="signature">서명 값 (Base64)</label>
+              <textarea
+                class="f"
+                id="signature"
+                name="signature"
+                placeholder="MEUCIQ…"
+                required
+                rows="3"
+                spellcheck="false"
+                th:text="${oForm?.signature}"
+              ></textarea>
+              <div class="hint">
+                이 키의 공개키로 검증합니다. ECDSA는 DER 형식 서명을 넣으세요.
+              </div>
+            </div>
+            <div class="actions">
+              <button
+                class="btn btn-dark"
+                th:text="${opMode == 'verify'} ? '검증' : '서명'"
+                type="submit"
+              >
+                서명
+              </button>
+              <span class="hint"
+                >결과는 이 창에 바로 표시됩니다 (저장하지 않음)</span
+              >
             </div>
 
-            <nav aria-label="키 작업" class="modal-tabs">
-                <a th:attr="aria-current=${opMode == t[0]} ? 'page'"
-                   th:each="t : ${ { {'sign', '서명 요청'}, {'verify', '검증 요청'}, {'info', '키 정보'} } }"
-                   th:href="@{/pki/kms(opKeyId=${okid}, op=${t[0]}, keyAlgorithm=${qAlgorithm}, keyAlgorithmPreset=${qPreset})}"
-                   th:text="${t[1]}">서명 요청</a>
-            </nav>
-
-            <!-- 서명 · 검증 요청 -->
-            <form class="modal-body" method="post" th:if="${opMode == 'sign' or opMode == 'verify'}"
-                  th:action="${opMode == 'sign'} ? @{/pki/kms/keys/{id}/sign(id=${okid})} : @{/pki/kms/keys/{id}/verify(id=${okid})}">
-                <div class="grid-sig">
-                    <div class="field field-sm">
-                        <label class="lbl" for="signatureAlgorithm">서명 알고리즘</label>
-                        <select class="f mono" id="signatureAlgorithm" name="signatureAlgorithm" style="font-size: 12.5px">
-                            <option th:each="sa : ${signatureAlgorithms}"
-                                    th:selected="${(sa.name() == 'ECDSA' and oPreset.algorithm.name() == 'EC') or (sa.name() == 'RSA' and oPreset.algorithm.name() == 'RSA')}"
-                                    th:text="${sa.jcaName}" th:value="${sa}">ECDSA
-                            </option>
-                        </select>
-                        <div class="hint" th:text="|기본: ${oSig}|">기본: SHA384withECDSA</div>
-                    </div>
-                    <div class="field field-sm">
-                        <label class="lbl" for="encoding">입력 형식</label>
-                        <select class="f" id="encoding" name="encoding">
-                            <option value="TEXT">TEXT</option>
-                            <option value="BASE64">BASE64</option>
-                            <option value="HEX">HEX</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="field field-sm">
-                    <label class="lbl" for="data" th:text="${opMode == 'verify'} ? '원본 데이터' : '서명할 데이터'">서명할 데이터</label>
-                    <textarea class="f" id="data" name="data" placeholder="hello pki" required rows="3" spellcheck="false"></textarea>
-                </div>
-                <div class="field field-sm" th:if="${opMode == 'verify'}">
-                    <label class="lbl" for="signature">서명 값 (Base64)</label>
-                    <textarea class="f" id="signature" name="signature" placeholder="MEUCIQ…" required rows="3"
-                              spellcheck="false" th:text="${signResult?.signatureBase64}"></textarea>
-                    <div class="hint">이 키의 공개키로 검증합니다. ECDSA는 DER 형식 서명을 넣으세요.</div>
-                </div>
-                <div class="actions">
-                    <button class="btn btn-dark" th:text="${opMode == 'verify'} ? '검증' : '서명'" type="submit">서명</button>
-                    <span class="hint">결과는 이 창에 바로 표시됩니다 (저장하지 않음)</span>
-                </div>
-
-                <div class="result" role="status" th:if="${opMode == 'sign' and signResult != null}">
-                    <dl class="dl" style="grid-template-columns: 110px minmax(0, 1fr)">
-                        <dt>데이터 SHA-256</dt>
-                        <dd class="mono break" th:text="${signResult.dataSha256Hex}">…</dd>
-                        <dt>서명 (Base64)</dt>
-                        <dd class="mono break" th:text="${signResult.signatureBase64}">…</dd>
-                    </dl>
-                    <a style="font-size: 12.5px"
-                       th:href="@{/pki/kms(opKeyId=${okid}, op='verify', keyAlgorithm=${qAlgorithm}, keyAlgorithmPreset=${qPreset})}">이
-                        서명 바로 검증해 보기</a>
-                </div>
-                <div class="verdict" role="status" th:classappend="${verifyResult.valid} ? 'verdict-ok' : 'verdict-bad'"
-                     th:if="${opMode == 'verify' and verifyResult != null}">
-                    <div class="verdict-title" th:text="${verifyResult.valid} ? '유효한 서명입니다' : '서명이 일치하지 않습니다'">유효한 서명입니다</div>
-                    <div th:text="${verifyResult.valid} ? '데이터와 서명이 이 키의 공개키로 확인됐습니다.' : '데이터 · 서명 값 · 입력 형식을 다시 확인하세요.'">
-                        데이터와 서명이 이 키의 공개키로 확인됐습니다.
-                    </div>
-                </div>
-            </form>
-
-            <!-- 키 정보 -->
-            <div class="modal-body" th:if="${opMode == 'info'}">
-                <dl class="dl" style="grid-template-columns: 130px minmax(0, 1fr); gap: 9px 14px">
-                    <dt>키 ID</dt>
-                    <dd class="mono" th:text="${okid}">7d1e2c4a-3b90-4f6e-9a1c-8e55d2019f03</dd>
-                    <dt>알고리즘</dt>
-                    <dd th:text="|${oAlg} · ${keySpec[oPreset.name()]}|">EC P384 · secp384r1</dd>
-                    <dt>기본 서명 알고리즘</dt>
-                    <dd class="mono" th:text="${oSig}">SHA384withECDSA</dd>
-                    <dt>생성일</dt>
-                    <dd class="mono" th:text="${#dates.format(opKey.createdAt, 'yyyy-MM-dd HH:mm:ss')}">2026-03-02 09:12:44</dd>
-                    <th:block th:if="${publicKeyPem != null}">
-                        <dt>공개키 지문</dt>
-                        <dd class="mono break" data-pubkey-fingerprint>SHA-256 —</dd>
-                    </th:block>
-                </dl>
-                <div class="field field-sm" th:if="${publicKeyPem != null}">
-                    <label class="lbl" for="kd-pem">공개키 (PEM)</label>
-                    <textarea class="f mono" data-pubkey-pem id="kd-pem" readonly rows="5" spellcheck="false"
-                              style="font-size: 12px; resize: none" th:text="${publicKeyPem}">-----BEGIN PUBLIC KEY-----</textarea>
-                </div>
+            <div
+              class="result"
+              role="status"
+              th:if="${opMode == 'sign' and signResult != null}"
+            >
+              <dl
+                class="dl"
+                style="grid-template-columns: 110px minmax(0, 1fr)"
+              >
+                <dt th:text="|데이터 ${signResult.dataHashAlgorithm}|">데이터 SHA-256</dt>
+                <dd class="mono break" th:text="${signResult.dataHashHex}">
+                  …
+                </dd>
+                <dt>서명 (Base64)</dt>
+                <dd class="mono break" th:text="${signResult.signatureBase64}">
+                  …
+                </dd>
+              </dl>
+              <button
+                class="btn btn-outline btn-sm"
+                type="submit"
+                form="verify-prefill"
+                th:if="${oForm != null}"
+                >이 서명 바로 검증해 보기</button
+              >
             </div>
-
-            <!-- 키 삭제 확인 -->
-            <form class="modal-body" method="post" th:action="@{/pki/kms/keys/{id}/delete(id=${okid})}"
-                  th:if="${opMode == 'delete'}">
-                <div class="danger-box">
-                    <div class="danger-box-title">이 키를 삭제할까요?</div>
-                    <div>개인키가 즉시 파기되며 되돌릴 수 없습니다. 이 키로 서명한 인증서는 공개키로만 검증할 수 있습니다.</div>
-                </div>
-                <div class="field field-sm">
-                    <label class="lbl" for="confirmDisplayName" th:text="|확인: &quot;${confirmValue}&quot; 입력|">확인: 별칭 입력</label>
-                    <input autocomplete="off" class="f" data-confirm-input id="confirmDisplayName" name="confirmDisplayName" required
-                           spellcheck="false" th:attr="data-confirm-value=${confirmValue}" th:placeholder="${confirmValue}"
-                           type="text">
-                </div>
-                <div class="actions actions-end">
-                    <a class="btn btn-outline"
-                       th:href="@{/pki/kms(opKeyId=${okid}, op='info', keyAlgorithm=${qAlgorithm}, keyAlgorithmPreset=${qPreset})}">취소</a>
-                    <button class="btn btn-danger" data-confirm-button type="submit">삭제</button>
-                </div>
-            </form>
-
-            <div class="modal-foot actions-end" th:if="${opMode != 'delete'}">
-                <button class="btn btn-outline" data-pubkey-download
-                        th:attr="data-filename=|${confirmValue}.pem|, data-pem=${publicKeyPem}"
-                        th:if="${publicKeyPem != null}" type="button">공개키 다운로드 (.pem)
-                </button>
-                <a class="btn btn-danger-outline"
-                   th:href="@{/pki/kms(opKeyId=${okid}, op='delete', keyAlgorithm=${qAlgorithm}, keyAlgorithmPreset=${qPreset})}">삭제</a>
+            <div
+              class="verdict"
+              role="status"
+              th:classappend="${verifyResult.valid} ? 'verdict-ok' : 'verdict-bad'"
+              th:if="${opMode == 'verify' and verifyResult != null}"
+            >
+              <div
+                class="verdict-title"
+                th:text="${verifyResult.valid} ? '유효한 서명입니다' : '서명이 일치하지 않습니다'"
+              >
+                유효한 서명입니다
+              </div>
+              <div
+                th:text="${verifyResult.valid} ? '데이터와 서명이 이 키의 공개키로 확인됐습니다.' : '데이터 · 서명 값 · 입력 형식을 다시 확인하세요.'"
+              >
+                데이터와 서명이 이 키의 공개키로 확인됐습니다.
+              </div>
             </div>
+          </form>
 
+          <form
+            id="verify-prefill"
+            hidden
+            method="post"
+            th:if="${opMode == 'sign' and signResult != null and oForm != null}"
+            th:action="@{/pki/kms/keys/{id}/verify/prepare(id=${okid})}"
+          >
+            <input type="hidden" name="signatureAlgorithm" th:value="${oForm.signatureAlgorithm}" />
+            <input type="hidden" name="hashAlgorithm" th:if="${oForm.hashAlgorithm != null}" th:value="${oForm.hashAlgorithm}" />
+            <input type="hidden" name="encoding" th:value="${oForm.encoding}" />
+            <input type="hidden" name="data" th:value="${oForm.data}" />
+            <input type="hidden" name="signature" th:value="${oForm.signature}" />
+            <input type="hidden" name="keyAlgorithm" th:if="${qAlgorithm != null}" th:value="${qAlgorithm}" />
+            <input type="hidden" name="keyword" th:if="${qKeyword != null}" th:value="${qKeyword}" />
+          </form>
+
+          <!-- 키 정보 -->
+          <div class="modal-body" th:if="${opMode == 'info'}">
+            <dl
+              class="dl"
+              style="grid-template-columns: 130px minmax(0, 1fr); gap: 9px 14px"
+            >
+              <dt>키 ID</dt>
+              <dd class="mono" th:text="${okid}">
+                7d1e2c4a-3b90-4f6e-9a1c-8e55d2019f03
+              </dd>
+              <dt>별칭</dt>
+              <dd th:text="${opKey.alias} ?: '—'">tls-issuing-ca</dd>
+              <dt>알고리즘</dt>
+              <dd th:text="${oAlgorithmLabel}">EC_P256</dd>
+              <dt>Provider</dt>
+              <dd th:text="${opKey.keyProviderId.value()}">in-memory</dd>
+              <dt>기본 서명 알고리즘</dt>
+              <dd class="mono" th:text="${oSig}">SHA384withECDSA</dd>
+              <dt>생성일</dt>
+              <dd
+                class="mono"
+                th:text="${#temporals.format(opKey.createdAt, 'yyyy-MM-dd HH:mm:ss.SSS', 'Asia/Seoul')}"
+              >
+                2026-03-02 09:12:44.123
+              </dd>
+              <th:block th:if="${publicKeyPem != null}">
+                <dt>공개키 지문</dt>
+                <dd class="mono break" data-pubkey-fingerprint>SHA-256 —</dd>
+              </th:block>
+            </dl>
+            <div class="field field-sm" th:if="${publicKeyPem != null}">
+              <label class="lbl" for="kd-pem">공개키 (PEM)</label>
+              <textarea
+                class="f mono"
+                data-pubkey-pem
+                id="kd-pem"
+                readonly
+                rows="5"
+                spellcheck="false"
+                style="font-size: 12px; resize: none"
+                th:text="${publicKeyPem}"
+              >
+-----BEGIN PUBLIC KEY-----</textarea
+              >
+            </div>
+          </div>
+
+          <!-- 키 삭제 확인 -->
+          <form
+            class="modal-body"
+            method="post"
+            th:action="@{/pki/kms/keys/{id}/delete(id=${okid})}"
+            th:if="${opMode == 'delete'}"
+          >
+            <div class="danger-box">
+              <div class="danger-box-title">이 키를 삭제할까요?</div>
+              <div>
+                개인키가 즉시 파기되며 되돌릴 수 없습니다. 이 키로 서명한
+                인증서는 공개키로만 검증할 수 있습니다.
+              </div>
+            </div>
+            <div class="field field-sm">
+              <label
+                class="lbl"
+                for="confirmKeyId"
+                th:text='|확인: "${confirmValue}" 입력|'
+                >확인: 키 ID 입력</label
+              >
+              <input
+                autocomplete="off"
+                class="f"
+                data-confirm-input
+                id="confirmKeyId"
+                name="confirmKeyId"
+                required
+                spellcheck="false"
+                th:attr="data-confirm-value=${confirmValue}"
+                th:placeholder="${confirmValue}"
+                type="text"
+              />
+            </div>
+            <div class="actions actions-end">
+              <a
+                class="btn btn-outline"
+                th:href="@{/pki/kms(opKeyId=${okid}, op='info', keyAlgorithm=${qAlgorithm}, keyword=${qKeyword})}"
+                >취소</a
+              >
+              <button class="btn btn-danger" data-confirm-button type="submit">
+                삭제
+              </button>
+            </div>
+          </form>
+
+          <div class="modal-foot actions-end" th:if="${opMode != 'delete'}">
+            <a
+              class="btn btn-danger-outline"
+              th:href="@{/pki/kms(opKeyId=${okid}, op='delete', keyAlgorithm=${qAlgorithm}, keyword=${qKeyword})}"
+              >삭제</a
+            >
+          </div>
         </section>
-    </div>
-</main>
-</body>
+      </div>
+    </main>
+  </body>
 </html>
