@@ -1,5 +1,10 @@
 package toy.pki.ca.domain.certificate;
 
-public class CertificateValidity {
+import java.time.Instant;
+
+public record CertificateValidity(
+    Instant notBefore,
+    Instant notAfter
+) {
 
 }

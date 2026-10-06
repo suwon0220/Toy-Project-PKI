@@ -1,4 +1,4 @@
-package toy.pki.ca.application.model;
+package toy.pki.ca.application.profile.model;
 
 import java.util.Set;
 

@@ -1,4 +1,4 @@
-package toy.pki.ca.application.model;
+package toy.pki.ca.application.profile.model;
 
 import java.util.Set;
 
@@ -17,13 +17,15 @@ public record CreateProfileCommand(
     SubjectKeyPolicy subjectKeyPolicy,
     SanPolicy sanPolicy,
 
+    String subjectDomainComponent,
+    String subjectCommonName,
     String subjectOrganization,
     String subjectOrganizationalUnit,
     String subjectLocality,
     String subjectState,
     String subjectCountry,
 
-    boolean ca,
+    CertificateType certificateType,
     Integer pathLenConstraint,
 
     Set<KeyUsage> keyUsages,

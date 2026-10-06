@@ -39,14 +39,16 @@
     <div class="main"
          th:with="okMessage=${flashSuccess}">
         <div class="alert alert-ok" role="status" th:if="${okMessage}">
-            <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+            <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" stroke-linecap="round"
+                 stroke-linejoin="round"
                  stroke-width="2" viewBox="0 0 24 24" width="18">
                 <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
             <div th:text="${okMessage}">처리했습니다.</div>
         </div>
         <div class="alert alert-err" role="alert" th:if="${flashError}">
-            <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+            <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" stroke-linecap="round"
+                 stroke-linejoin="round"
                  stroke-width="2" viewBox="0 0 24 24" width="18">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="12" x2="12" y1="8" y2="12"></line>

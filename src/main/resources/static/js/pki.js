@@ -131,6 +131,7 @@
     }
 
     /* ---------- 공개키 지문 · 다운로드 ---------- */
+
     // 서버가 넣어 준 공개키 PEM(publicKeyPem)으로 SHA-256 지문을 계산하고 .pem 파일로 내려준다.
     function pemToBytes(pem) {
         var body = pem.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');

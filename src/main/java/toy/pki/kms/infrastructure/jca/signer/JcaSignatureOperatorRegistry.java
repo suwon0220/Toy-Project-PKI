@@ -1,10 +1,8 @@
 package toy.pki.kms.infrastructure.jca.signer;
 
 import java.util.List;
-
-import org.springframework.stereotype.Component;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 import toy.pki.kms.adapter.keymaterial.jca.JcaSignatureOperator;
 import toy.pki.kms.domain.key.signature.SignatureParameters;
 
@@ -16,8 +14,8 @@ public class JcaSignatureOperatorRegistry {
 
     public JcaSignatureOperator get(SignatureParameters parameters) {
         List<JcaSignatureOperator> matches = signers.stream()
-            .filter(signer -> signer.supports(parameters))
-            .toList();
+                                                    .filter(signer -> signer.supports(parameters))
+                                                    .toList();
 
         if (matches.isEmpty()) {
             throw new IllegalArgumentException(

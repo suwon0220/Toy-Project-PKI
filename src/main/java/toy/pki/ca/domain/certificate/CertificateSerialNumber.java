@@ -1,5 +1,7 @@
 package toy.pki.ca.domain.certificate;
 
-public class CertificateSerialNumber {
+public record CertificateSerialNumber (
+    String serialNumber
+) {
 
 }

@@ -61,7 +61,8 @@
             <span th:text="${#temporals.format(cert.notAfter, 'yyyy-MM-dd')}">2027-01-02</span>
         </dd>
         <dt>키</dt>
-        <dd th:text="${#messages.msgOrNull('enum.KeyAlgorithm.' + cert.keyAlgorithm) ?: cert.keyAlgorithm}">EC P-384</dd>
+        <dd th:text="${#messages.msgOrNull('enum.KeyAlgorithm.' + cert.keyAlgorithm) ?: cert.keyAlgorithm}">EC P-384
+        </dd>
         <th:block th:if="${cert.subjectDn != null}">
             <dt>Subject</dt>
             <dd class="mono break" th:text="${cert.subjectDn}">CN=api.example.com,O=…,C=KR</dd>
@@ -112,7 +113,8 @@
                     </dd>
                     <th:block th:if="${ocspCheck.revocationTime}">
                         <dt>폐지 시각</dt>
-                        <dd class="mono" th:text="${#temporals.format(ocspCheck.revocationTime, 'yyyy-MM-dd HH:mm:ss')}">
+                        <dd class="mono"
+                            th:text="${#temporals.format(ocspCheck.revocationTime, 'yyyy-MM-dd HH:mm:ss')}">
                             2026-09-28 13:47:05
                         </dd>
                         <dt>사유</dt>
@@ -151,7 +153,8 @@
             <label class="lbl" for="reason">사유 <span aria-hidden="true" class="req">*</span></label>
             <select class="f" required th:errorclass="is-invalid" th:field="*{reason}">
                 <option value="">선택하세요</option>
-                <option th:each="r : ${revocationReasons}" th:text="${#messages.msgOrNull('enum.RevocationReason.' + r) ?: r}"
+                <option th:each="r : ${revocationReasons}"
+                        th:text="${#messages.msgOrNull('enum.RevocationReason.' + r) ?: r}"
                         th:value="${r}">keyCompromise (1)
                 </option>
             </select>
@@ -169,15 +172,20 @@
             <div class="err" th:errors="*{comment}" th:if="${#fields.hasErrors('comment')}">메모 오류</div>
         </div>
         <div class="field field-sm">
-            <label class="lbl" for="confirmSerial">확인: 시리얼 끝 6자리 <span class="mono" th:text="${last6}">3d12ab</span></label>
+            <label class="lbl" for="confirmSerial">확인: 시리얼 끝 6자리 <span class="mono"
+                                                                       th:text="${last6}">3d12ab</span></label>
             <input autocomplete="off" class="f mono" data-confirm-input maxlength="6" required spellcheck="false"
-                   th:attr="data-confirm-value=${last6}" th:errorclass="is-invalid" th:field="*{confirmSerial}" type="text">
-            <div class="err" th:errors="*{confirmSerial}" th:if="${#fields.hasErrors('confirmSerial')}">시리얼이 일치하지 않습니다.</div>
+                   th:attr="data-confirm-value=${last6}" th:errorclass="is-invalid" th:field="*{confirmSerial}"
+                   type="text">
+            <div class="err" th:errors="*{confirmSerial}" th:if="${#fields.hasErrors('confirmSerial')}">시리얼이 일치하지
+                않습니다.
+            </div>
         </div>
         <label class="ck"><input th:field="*{publishCrlNow}" type="checkbox">CRL 즉시 재발행</label>
         <div class="actions">
             <button class="btn btn-outline btn-md" formnovalidate
-                    th:formaction="@{/pki/certificates/{serial}/release-hold(serial=${cert.serial})}" th:if="${st == 'ON_HOLD'}"
+                    th:formaction="@{/pki/certificates/{serial}/release-hold(serial=${cert.serial})}"
+                    th:if="${st == 'ON_HOLD'}"
                     type="submit">보류 해제
             </button>
             <button class="btn btn-danger btn-md grow" data-confirm-button type="submit">인증서 폐지</button>
@@ -188,12 +196,17 @@
         <h3 class="card-sub text-danger">폐지됨</h3>
         <dl class="dl">
             <dt>폐지 시각</dt>
-            <dd class="mono" th:text="${#temporals.format(cert.revokedAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-28 13:47:05</dd>
+            <dd class="mono" th:text="${#temporals.format(cert.revokedAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-28 13:47:05
+            </dd>
             <dt>사유</dt>
-            <dd th:insert="~{pki/fragments/ui :: label('RevocationReason', ${cert.revocationReason})}">keyCompromise (1)</dd>
+            <dd th:insert="~{pki/fragments/ui :: label('RevocationReason', ${cert.revocationReason})}">keyCompromise
+                (1)
+            </dd>
             <th:block th:if="${cert.invalidityDate}">
                 <dt>손상 추정</dt>
-                <dd class="mono" th:text="${#temporals.format(cert.invalidityDate, 'yyyy-MM-dd HH:mm')}">2026-09-27 22:00</dd>
+                <dd class="mono" th:text="${#temporals.format(cert.invalidityDate, 'yyyy-MM-dd HH:mm')}">2026-09-27
+                    22:00
+                </dd>
             </th:block>
         </dl>
     </div>

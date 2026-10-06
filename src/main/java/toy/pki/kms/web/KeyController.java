@@ -8,7 +8,9 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -22,10 +24,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import toy.pki.kms.application.model.KeySearchCriteria;
 import toy.pki.kms.application.service.KeyManagementService;
 import toy.pki.kms.domain.key.HashAlgorithm;
@@ -72,9 +70,9 @@ public class KeyController {
     public List<ManagedKey> keys(@ModelAttribute KeyQuery keyQuery, Model model) {
         List<ManagedKey> keys = keyManagementService.search(keyQuery.toCriteria());
         model.addAttribute("keyAlgorithmLabels", keys.stream()
-            .collect(Collectors.toMap(
-                ManagedKey::getKeyId,
-                key -> KeyAlgorithmPreset.displayName(key.getKeyGenerationParameters()))));
+                                                     .collect(Collectors.toMap(
+                                                         ManagedKey::getKeyId,
+                                                         key -> KeyAlgorithmPreset.displayName(key.getKeyGenerationParameters()))));
         return keys;
     }
 
@@ -144,8 +142,8 @@ public class KeyController {
             default -> hashAlgorithm;
         };
         String dataHash = HexFormat.of()
-            .formatHex(
-                MessageDigest.getInstance(dataHashAlgorithm.getAlgorithmName()).digest(bytes));
+                                   .formatHex(
+                                       MessageDigest.getInstance(dataHashAlgorithm.getAlgorithmName()).digest(bytes));
 
         String signatureBase64 = Base64.getEncoder().encodeToString(signature);
         redirectAttributes.addFlashAttribute(
@@ -236,30 +234,6 @@ public class KeyController {
         return "redirect:/pki/kms";
     }
 
-    @Data
-    public static class KeyQuery {
-
-        private KeyAlgorithm keyAlgorithm;
-        private String keyword;
-        private String keyId;
-
-        public String getSearchKeyword() {
-            return keyword != null ? keyword : keyId;
-        }
-
-        public KeySearchCriteria toCriteria() {
-            return new KeySearchCriteria(
-                keyAlgorithm,
-                getSearchKeyword());
-        }
-    }
-
-    private enum DataEncoding {
-        TEXT,
-        BASE64,
-        HEX
-    }
-
     private SignatureFormData signatureFormData(
         KeyId keyId,
         SignatureAlgorithm signatureAlgorithm,
@@ -277,28 +251,46 @@ public class KeyController {
         HashAlgorithm hashAlgorithm) {
         // TODO: check hashAlgorithm is not null for algorithms that require it
         return switch (signatureAlgorithm) {
-            case DSA ->
-                throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "DSA 서명은 지원하지 않습니다");
+            case DSA -> throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "DSA 서명은 지원하지 않습니다");
 
-            case RSA_PKCS1_V1_5 ->
-                new RsaPkcs1SignatureParameters(hashAlgorithm);
+            case RSA_PKCS1_V1_5 -> new RsaPkcs1SignatureParameters(hashAlgorithm);
 
-            case RSA_PSS ->
-                new RsaPssSignatureParameters(
-                    hashAlgorithm,
-                    hashAlgorithm,
-                    32);
+            case RSA_PSS -> new RsaPssSignatureParameters(
+                hashAlgorithm,
+                hashAlgorithm,
+                32);
 
-            case ECDSA ->
-                new EcdsaSignatureParameters(hashAlgorithm);
+            case ECDSA -> new EcdsaSignatureParameters(hashAlgorithm);
 
-            case Ed25519 ->
-                new Ed25519SignatureParameters();
+            case Ed25519 -> new Ed25519SignatureParameters();
 
-            case Ed448 ->
-                new Ed448SignatureParameters();
+            case Ed448 -> new Ed448SignatureParameters();
         };
+    }
+
+    private enum DataEncoding {
+        TEXT,
+        BASE64,
+        HEX
+    }
+
+    @Data
+    public static class KeyQuery {
+
+        private KeyAlgorithm keyAlgorithm;
+        private String keyword;
+        private String keyId;
+
+        public String getSearchKeyword() {
+            return keyword != null ? keyword : keyId;
+        }
+
+        public KeySearchCriteria toCriteria() {
+            return new KeySearchCriteria(
+                keyAlgorithm,
+                getSearchKeyword());
+        }
     }
 }

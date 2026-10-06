@@ -70,7 +70,8 @@
                     </span>
                     <span th:text="${c.profileName}">TLS 서버</span>
                     <span class="glist-cell">
-                        <span class="glist-mono" th:text="${#temporals.format(c.notAfter, 'yyyy-MM-dd')}">2027-01-02</span>
+                        <span class="glist-mono"
+                              th:text="${#temporals.format(c.notAfter, 'yyyy-MM-dd')}">2027-01-02</span>
                         <span class="hint"
                               th:if="${c.status != null and c.status.name() != 'EXPIRED' and c.status.name() != 'REVOKED' and c.daysLeft <= 90}"
                               th:text="|${c.daysLeft}일 남음|">95일 남음</span>
@@ -85,10 +86,10 @@
 
             <div class="empty-state empty-lg" th:if="${noCerts}">
                 <div class="empty-title">발급된 인증서가 없습니다</div>
-                <div class="hint" style="max-width: 460px">[+ 새 인증서 발급]으로 첫 인증서를 만드세요. 발급할 CA가 아직 없다면
-                    ROOT_CA 프로파일을 골라 자체 서명 Root CA부터 만들면 됩니다.
+                <div class="hint" style="max-width: 460px">[+ 새 인증서 발급]에서 프로파일과 발급 CA를 선택하세요.
                 </div>
-                <a class="btn btn-primary btn-md" th:href="@{/pki/certificates(mode='issue', keyMode='NEW')}">+ 새 인증서 발급</a>
+                <a class="btn btn-primary btn-md" th:href="@{/pki/certificates(mode='issue', keyMode='NEW')}">+ 새 인증서
+                    발급</a>
             </div>
 
             <nav aria-label="페이지" class="pager" th:unless="${noCerts or page.empty}">
@@ -99,7 +100,8 @@
                     <a th:href="@{/pki/certificates(page=${page.number - 1}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, profileName=${filter.profileName})}"
                        th:if="${page.hasPrevious()}">이전</a>
                     <span class="pg" th:unless="${page.hasPrevious()}">이전</span>
-                    <a th:attr="aria-current=${i == page.number} ? 'page'" th:each="i : ${#numbers.sequence(first, last)}"
+                    <a th:attr="aria-current=${i == page.number} ? 'page'"
+                       th:each="i : ${#numbers.sequence(first, last)}"
                        th:href="@{/pki/certificates(page=${i}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, profileName=${filter.profileName})}"
                        th:text="${i + 1}">1</a>
                     <a th:href="@{/pki/certificates(page=${page.number + 1}, size=${page.size}, sort=${sortParam}, q=${filter.q}, status=${filter.status}, profileName=${filter.profileName})}"

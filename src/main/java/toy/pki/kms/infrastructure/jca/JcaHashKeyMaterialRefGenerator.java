@@ -22,6 +22,6 @@ public class JcaHashKeyMaterialRefGenerator implements KeyMaterialRefGenerator {
     @Override
     public KeyMaterialRef generate(PublicKey publicKey) {
         byte[] hash = keyIdMessageDigest.digest(publicKey.getEncoded());
-        return new KeyMaterialRef(keyIdMessageDigest.getAlgorithm()+":"+ HexFormat.of().formatHex(hash));
+        return new KeyMaterialRef(keyIdMessageDigest.getAlgorithm() + ":" + HexFormat.of().formatHex(hash));
     }
 }

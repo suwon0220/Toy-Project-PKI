@@ -7,7 +7,7 @@ import java.security.NoSuchAlgorithmException;
 import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
 
 public interface JcaKeyGenerator {
-    public boolean supports(KeyGenerationParameters parameters);
-    public KeyPair generate(KeyGenerationParameters parameters)
+    boolean supports(KeyGenerationParameters parameters);
+    KeyPair generate(KeyGenerationParameters parameters)
         throws NoSuchAlgorithmException, InvalidAlgorithmParameterException;
 }

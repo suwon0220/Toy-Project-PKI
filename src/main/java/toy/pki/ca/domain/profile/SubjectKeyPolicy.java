@@ -1,18 +1,16 @@
 package toy.pki.ca.domain.profile;
 
+import jakarta.validation.constraints.NotEmpty;
 import java.util.Set;
 
-import jakarta.validation.constraints.NotEmpty;
-import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
-
 public record SubjectKeyPolicy(
-    @NotEmpty Set<KeyGenerationParameters> allowedKeys) {
+    @NotEmpty Set<SubjectKeySpec> allowedKeys) {
 
     public SubjectKeyPolicy {
         allowedKeys = Set.copyOf(allowedKeys);
     }
 
-    public boolean allows(KeyGenerationParameters parameters) {
+    public boolean allows(SubjectKeySpec parameters) {
         return allowedKeys.contains(parameters);
     }
 }

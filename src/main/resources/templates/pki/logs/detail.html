@@ -24,11 +24,15 @@
         <h2 class="card-title">요약</h2>
         <dl class="dl">
             <dt>시각</dt>
-            <dd class="mono" th:text="${#temporals.format(entry.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-29 10:40:05</dd>
+            <dd class="mono" th:text="${#temporals.format(entry.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-29
+                10:40:05
+            </dd>
             <dt>분류</dt>
             <dd><span th:replace="~{pki/fragments/ui :: auditCategory(${entry.category})}"></span></dd>
             <dt>대상</dt>
-            <dd class="mono" th:text="${entry.targetId} ? |${entry.targetType} / ${entry.targetId}| : '—'">CERTIFICATE / 52e1ab88c0f731</dd>
+            <dd class="mono" th:text="${entry.targetId} ? |${entry.targetType} / ${entry.targetId}| : '—'">CERTIFICATE /
+                52e1ab88c0f731
+            </dd>
             <dt>내용</dt>
             <dd th:text="${entry.summary}">keyCompromise(1) · CRL 즉시 발행</dd>
             <dt>수행자</dt>

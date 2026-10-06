@@ -76,9 +76,11 @@
                 <th:block th:replace="~{pki/fragments/ui :: logSortHead('result', '결과')}"></th:block>
             </div>
             <a class="glist-row" th:each="e : ${page.content}" th:href="@{/pki/logs/{id}(id=${e.id})}">
-                <code class="glist-mono" th:text="${#temporals.format(e.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-29 10:42:18</code>
+                <code class="glist-mono" th:text="${#temporals.format(e.occurredAt, 'yyyy-MM-dd HH:mm:ss')}">2026-09-29
+                    10:42:18</code>
                 <span><span th:replace="~{pki/fragments/ui :: auditCategory(${e.category})}"></span></span>
-                <span style="font-weight: 600" th:insert="~{pki/fragments/ui :: label('AuditAction', ${e.action})}">발급</span>
+                <span style="font-weight: 600"
+                      th:insert="~{pki/fragments/ui :: label('AuditAction', ${e.action})}">발급</span>
                 <span class="glist-cell">
                     <code class="glist-mono ellipsis" th:text="${e.targetId} ?: '—'">52e1ab88c0f731</code>
                     <span class="hint ellipsis" th:text="${e.summary}">keyCompromise(1) · CRL 즉시 발행</span>

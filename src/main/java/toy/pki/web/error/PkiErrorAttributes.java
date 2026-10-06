@@ -1,5 +1,6 @@
 package toy.pki.web.error;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
@@ -10,7 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
 import org.springframework.boot.webmvc.error.DefaultErrorAttributes;
 import org.springframework.core.env.Environment;
@@ -24,10 +26,6 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-
-import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
@@ -47,8 +45,8 @@ public class PkiErrorAttributes extends DefaultErrorAttributes {
         String traceId = HexFormat.of().toHexDigits(ThreadLocalRandom.current().nextLong());
 
         HttpServletRequest request = webRequest instanceof NativeWebRequest nativeRequest
-            ? nativeRequest.getNativeRequest(HttpServletRequest.class)
-            : null;
+                                     ? nativeRequest.getNativeRequest(HttpServletRequest.class)
+                                     : null;
         String path = (String) attributes.get("path");
         Object query = webRequest.getAttribute(ERROR_QUERY_STRING, RequestAttributes.SCOPE_REQUEST);
         if (path != null && query != null) {
@@ -98,8 +96,8 @@ public class PkiErrorAttributes extends DefaultErrorAttributes {
             case 404 -> "주소가 잘못됐거나, 이미 삭제된 인증서·프로파일·키일 수 있어요.";
             case 405 -> "이 주소는 해당 요청 방식을 지원하지 않아요. 화면의 버튼으로 다시 시도하세요.";
             default -> status >= 500
-                ? "요청을 처리하는 중 예상하지 못한 오류가 났어요. 잠시 후 다시 시도하고, 계속되면 아래 요청 ID를 관리자에게 알려 주세요."
-                : "요청을 처리하지 못했어요. 주소나 입력값을 확인하고 다시 시도하세요.";
+                       ? "요청을 처리하는 중 예상하지 못한 오류가 났어요. 잠시 후 다시 시도하고, 계속되면 아래 요청 ID를 관리자에게 알려 주세요."
+                       : "요청을 처리하지 못했어요. 주소나 입력값을 확인하고 다시 시도하세요.";
         };
     }
 
@@ -127,8 +125,8 @@ public class PkiErrorAttributes extends DefaultErrorAttributes {
         }
         if (type.isEnum()) {
             String constants = Arrays.stream(type.getEnumConstants())
-                .map(Object::toString)
-                .collect(Collectors.joining(", "));
+                                     .map(Object::toString)
+                                     .collect(Collectors.joining(", "));
             return constants + " 중 하나여야 해요";
         }
         if (Number.class.isAssignableFrom(type) || (type.isPrimitive() && type != boolean.class)) {

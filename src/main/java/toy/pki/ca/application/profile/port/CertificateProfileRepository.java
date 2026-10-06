@@ -1,9 +1,9 @@
-package toy.pki.ca.application.port;
+package toy.pki.ca.application.profile.port;
 
 import java.util.List;
 import java.util.Optional;
 
-import toy.pki.ca.application.model.ProfileSearchCriteria;
+import toy.pki.ca.application.profile.model.ProfileSearchCriteria;
 import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.ProfileId;
 

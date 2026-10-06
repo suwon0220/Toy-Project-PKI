@@ -5,12 +5,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.springframework.stereotype.Repository;
-
 import lombok.RequiredArgsConstructor;
-import toy.pki.ca.application.model.ProfileSearchCriteria;
-import toy.pki.ca.application.port.CertificateProfileRepository;
+import org.springframework.stereotype.Repository;
+import toy.pki.ca.application.profile.model.ProfileSearchCriteria;
+import toy.pki.ca.application.profile.port.CertificateProfileRepository;
 import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.ProfileId;
 
@@ -33,9 +31,9 @@ public class InMemoryCertificateProfileRepository implements CertificateProfileR
     @Override
     public List<CertificateProfile> findByCriteria(ProfileSearchCriteria criteria) {
         return store.values()
-            .stream()
-            .filter(criteria.toPredicate())
-            .toList();
+                    .stream()
+                    .filter(criteria.toPredicate())
+                    .toList();
     }
 
     @Override

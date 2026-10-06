@@ -1,11 +1,14 @@
 package toy.pki.ca.web.profile;
 
+import jakarta.validation.Valid;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -18,13 +21,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import toy.pki.ca.application.model.CreateProfileCommand;
-import toy.pki.ca.application.model.UpdateProfileCommand;
-import toy.pki.ca.application.service.CertificateProfileService;
+import toy.pki.ca.application.profile.model.CreateProfileCommand;
+import toy.pki.ca.application.profile.model.UpdateProfileCommand;
+import toy.pki.ca.application.profile.service.CertificateProfileService;
 import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.ExtendedKeyUsageOid;
 import toy.pki.ca.domain.profile.KeyUsage;
@@ -32,6 +31,7 @@ import toy.pki.ca.domain.profile.ProfileId;
 import toy.pki.ca.domain.profile.SanPolicy;
 import toy.pki.ca.domain.profile.SanType;
 import toy.pki.ca.domain.profile.SubjectKeyPolicy;
+import toy.pki.ca.domain.profile.SubjectKeySpec;
 import toy.pki.kms.web.KeyAlgorithmPreset;
 
 @Slf4j
@@ -102,21 +102,18 @@ public class ProfileController {
         }
 
         SubjectKeyPolicy subjectKeyPolicy = new SubjectKeyPolicy(
-            createProfileForm.getKeyAlgorithms()
-                .stream()
-                .map(KeyAlgorithmPreset::toParameters)
-                .collect(Collectors.toSet()));
+            new HashSet<>(createProfileForm.getKeyAlgorithms()));
 
         SanPolicy sanPolicy = new SanPolicy(
             createProfileForm.isSanRequired(),
             Set.copyOf(createProfileForm.getAllowedSanTypes()));
 
         Set<ExtendedKeyUsageOid> extendedKeyUsages = createProfileForm.getExtendedKeyUsageOids()
-            .stream()
-            .filter(oid -> oid != null && !oid.isBlank())
-            .map(String::strip)
-            .map(ExtendedKeyUsageOid::new)
-            .collect(Collectors.toSet());
+                                                                      .stream()
+                                                                      .filter(oid -> oid != null && !oid.isBlank())
+                                                                      .map(String::strip)
+                                                                      .map(ExtendedKeyUsageOid::new)
+                                                                      .collect(Collectors.toSet());
 
         CreateProfileCommand request = new CreateProfileCommand(
             createProfileForm.getAlias(),
@@ -154,21 +151,18 @@ public class ProfileController {
         }
 
         SubjectKeyPolicy subjectKeyPolicy = new SubjectKeyPolicy(
-            updateProfileForm.getKeyAlgorithms()
-                .stream()
-                .map(KeyAlgorithmPreset::toParameters)
-                .collect(Collectors.toSet()));
+            new HashSet<SubjectKeySpec>(updateProfileForm.getKeyAlgorithms()));
 
         SanPolicy sanPolicy = new SanPolicy(
             updateProfileForm.isSanRequired(),
             Set.copyOf(updateProfileForm.getAllowedSanTypes()));
 
         Set<ExtendedKeyUsageOid> extendedKeyUsages = updateProfileForm.getExtendedKeyUsageOids()
-            .stream()
-            .filter(oid -> oid != null && !oid.isBlank())
-            .map(String::strip)
-            .map(ExtendedKeyUsageOid::new)
-            .collect(Collectors.toSet());
+                                                                      .stream()
+                                                                      .filter(oid -> oid != null && !oid.isBlank())
+                                                                      .map(String::strip)
+                                                                      .map(ExtendedKeyUsageOid::new)
+                                                                      .collect(Collectors.toSet());
 
         UpdateProfileCommand request = new UpdateProfileCommand(
             profileId,
@@ -199,7 +193,7 @@ public class ProfileController {
         return "redirect:/pki/profiles";
     }
 
-    @PostMapping({ "/{profileId}/deactivate" })
+    @PostMapping({"/{profileId}/deactivate"})
     public String deactivate(@PathVariable String profileId) {
         certificateProfileService.deactivate(profileId);
         return "redirect:/pki/profiles";

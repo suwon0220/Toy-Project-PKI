@@ -5,10 +5,8 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.Provider;
-
-import org.springframework.beans.factory.annotation.Autowired;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import toy.pki.kms.adapter.keymaterial.jca.JcaKeyGenerator;
 import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
 
@@ -26,6 +24,8 @@ public abstract class AbstractJcaKeyGenerator implements JcaKeyGenerator {
         return keyPairGenerator.generateKeyPair();
     }
 
-    protected abstract void initializeKeyPairGenerator(KeyPairGenerator keyPairGenerator, KeyGenerationParameters parameters)
+    protected abstract void initializeKeyPairGenerator(
+        KeyPairGenerator keyPairGenerator,
+        KeyGenerationParameters parameters)
         throws InvalidAlgorithmParameterException;
 }

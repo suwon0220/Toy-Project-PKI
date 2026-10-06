@@ -1,12 +1,11 @@
 package toy.pki.ca.domain.profile;
 
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.NotBlank;
 
 /**
  * ExtendedKeyUsageOid

@@ -1,4 +1,4 @@
-package toy.pki.ca.application.model;
+package toy.pki.ca.application.profile.model;
 
 import java.util.Locale;
 import java.util.function.Predicate;
@@ -10,8 +10,8 @@ public record ProfileSearchCriteria(
 
     public ProfileSearchCriteria {
         keyword = keyword == null || keyword.isBlank()
-            ? null
-            : keyword.strip().toLowerCase(Locale.ROOT);
+                  ? null
+                  : keyword.strip().toLowerCase(Locale.ROOT);
     }
 
     public Predicate<CertificateProfile> toPredicate() {

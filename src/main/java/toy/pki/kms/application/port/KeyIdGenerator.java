@@ -1,8 +1,7 @@
 package toy.pki.kms.application.port;
 
-import java.security.PublicKey;
-
 import jakarta.validation.constraints.NotNull;
+import java.security.PublicKey;
 import toy.pki.kms.domain.key.KeyId;
 
 public interface KeyIdGenerator {

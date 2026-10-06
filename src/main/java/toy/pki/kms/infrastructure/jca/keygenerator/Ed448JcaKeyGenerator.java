@@ -1,10 +1,8 @@
 package toy.pki.kms.infrastructure.jca.keygenerator;
 
 import java.security.KeyPairGenerator;
-
-import org.springframework.stereotype.Component;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 import toy.pki.kms.domain.key.generation.Ed448KeyGenerationParameters;
 import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
 

@@ -5,10 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.springframework.stereotype.Repository;
-
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Repository;
 import toy.pki.kms.application.model.KeySearchCriteria;
 import toy.pki.kms.application.port.KeyRepository;
 import toy.pki.kms.domain.key.KeyId;
@@ -23,9 +21,9 @@ public class InMemoryManagedKeyRepository implements KeyRepository {
     @Override
     public List<ManagedKey> findByCriteria(KeySearchCriteria criteria) {
         return store.values()
-            .stream()
-            .filter(criteria.toPredicate())
-            .toList();
+                    .stream()
+                    .filter(criteria.toPredicate())
+                    .toList();
     }
 
     @Override

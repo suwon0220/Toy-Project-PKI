@@ -1,19 +1,19 @@
-package toy.pki.ca.application.service;
+package toy.pki.ca.application.profile.service;
 
 import java.util.List;
 import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import toy.pki.ca.application.model.CreateProfileCommand;
-import toy.pki.ca.application.model.UpdateProfileCommand;
-import toy.pki.ca.application.port.CertificateProfileRepository;
+import org.springframework.stereotype.Service;
+import toy.pki.ca.application.profile.model.CreateProfileCommand;
+import toy.pki.ca.application.profile.model.UpdateProfileCommand;
+import toy.pki.ca.application.profile.port.CertificateProfileRepository;
 import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.ProfileId;
 
 @Slf4j
+@Data
 @Service
 @RequiredArgsConstructor
 public class CertificateProfileService {
@@ -34,7 +34,7 @@ public class CertificateProfileService {
             request.subjectLocality(),
             request.subjectState(),
             request.subjectCountry(),
-            request.ca(),
+            request.certificateType(),
             request.pathLenConstraint(),
             request.keyUsages(),
             request.extendedKeyUsages());
@@ -44,7 +44,7 @@ public class CertificateProfileService {
 
     public CertificateProfile findById(String profileId) {
         return repository.findById(new ProfileId(profileId))
-            .orElseThrow(() -> new IllegalArgumentException("Profile not found: " + profileId));
+                         .orElseThrow(() -> new IllegalArgumentException("Profile not found: " + profileId));
     }
 
     public List<CertificateProfile> findAll() {

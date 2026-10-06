@@ -1672,10 +1672,25 @@ body:has(.overlay) {
     color: var(--ink-3);
 }
 
-.cat-CERTIFICATE { background: var(--accent-soft); color: var(--accent-ink); }
-.cat-PROFILE { background: #E6ECF6; color: #1F3F73; }
-.cat-KMS { background: #F1E8F6; color: #5A2A73; }
-.cat-CRL { background: var(--warn-soft); color: var(--warn-ink); }
+.cat-CERTIFICATE {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+}
+
+.cat-PROFILE {
+    background: #E6ECF6;
+    color: #1F3F73;
+}
+
+.cat-KMS {
+    background: #F1E8F6;
+    color: #5A2A73;
+}
+
+.cat-CRL {
+    background: var(--warn-soft);
+    color: var(--warn-ink);
+}
 
 .ellipsis {
     overflow: hidden;

@@ -1,69 +1,64 @@
 package toy.pki.ca.domain.profile;
 
-import java.util.Set;
-import java.util.UUID;
-
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import lombok.Data;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
+import lombok.Data;
+import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
+import toy.pki.ca.domain.certificate.CertificateSubject;
 
 @Data
 @AllArgsConstructor
 public class CertificateProfile {
     // Unique identifier for the certificate profile
     @NotNull
-    @Valid private final ProfileId id;
+    @Valid
+    private final ProfileId id;
     private String alias;
+    private String description;
+    // Status of the certificate profile
+    @NotNull private ProfileStatus status = ProfileStatus.DRAFT;
+    // Validity period in days
+    @Min(1) private int defaultValidityDays;
+    @Min(1) private int maxValidityDays;
+    // Subject Key Policy
+    @NotNull
+    @Valid
+    private SubjectKeyPolicy subjectKeyPolicy;
+    private Set<CertificateSignatureAlgorithm> allowedSignatures = Set.of();
+    // SAN Policy
+    @NotNull private SanPolicy sanPolicy;
+    // Subject Policy
+    private CertificateSubject subjectPolicy;
+    // Basic Constraints
+    private boolean isCa;
+    private Integer pathLenConstraint;
+    // Key Usage
+    @NotEmpty private Set<@NotNull KeyUsage> keyUsages;
+    @NotNull private Set<@NotNull @Valid ExtendedKeyUsageOid> extendedKeyUsages;
+
+
 
     @AssertTrue(message = "alias는 null이 아닐 경우 비어있을 수 없습니다")
     public boolean isValidAlias() {
         return alias == null || !alias.isEmpty();
     }
 
-    private String description;
-
     @AssertTrue(message = "description은 null이 아닐 경우 비어있을 수 없습니다")
     public boolean isValidDescription() {
         return description == null || !description.isEmpty();
     }
 
-    // Status of the certificate profile
-    @NotNull private ProfileStatus status = ProfileStatus.DRAFT;
-
-    // Validity period in days
-    @Min(1) private int defaultValidityDays;
-    @Min(1) private int maxValidityDays;
-
     @AssertTrue(message = "defaultValidityDays는 maxValidityDays보다 작거나 같아야 합니다")
     public boolean isValidValidityRange() {
         return defaultValidityDays <= maxValidityDays;
     }
-
-    // Subject Key Policy
-    @NotNull
-    @Valid private SubjectKeyPolicy subjectKeyPolicy;
-
-    // SAN Policy
-    @NotNull private SanPolicy sanPolicy;
-
-    // Subject Policy
-    private String subjectOrganization;
-    private String subjectOrganizationalUnit;
-    private String subjectLocality;
-    private String subjectState;
-    private String subjectCountry;
-
-    // Basic Constraints
-    private boolean isCa;
-    private Integer pathLenConstraint;
-
-    // Key Usage
-    @NotEmpty private Set<@NotNull KeyUsage> keyUsages;
-    @NotNull private Set<@NotNull @Valid ExtendedKeyUsageOid> extendedKeyUsages;
 
     @AssertTrue(message = "CA가 아닌 프로파일에는 KEY_CERT_SIGN을 설정할 수 없습니다")
     public boolean isValidCaKeyUsage() {
@@ -74,14 +69,14 @@ public class CertificateProfile {
     public boolean isValidPathLenConstraint() {
         return pathLenConstraint == null
             || (isCa && pathLenConstraint >= 0
-                && keyUsages != null && keyUsages.contains(KeyUsage.KEY_CERT_SIGN));
+            && keyUsages != null && keyUsages.contains(KeyUsage.KEY_CERT_SIGN));
     }
 
     @AssertTrue(message = "ENCIPHER_ONLY 또는 DECIPHER_ONLY를 사용하려면 KEY_AGREEMENT가 필요합니다")
     public boolean isValidKeyAgreementUsage() {
         return keyUsages == null
             || (!keyUsages.contains(KeyUsage.ENCIPHER_ONLY)
-                && !keyUsages.contains(KeyUsage.DECIPHER_ONLY))
+            && !keyUsages.contains(KeyUsage.DECIPHER_ONLY))
             || keyUsages.contains(KeyUsage.KEY_AGREEMENT);
     }
 
@@ -91,43 +86,8 @@ public class CertificateProfile {
             return true; // null은 필드의 제약 조건에서 검증합니다.
         }
         return extendedKeyUsages.stream()
-            .filter(eku -> eku != null)
-            .allMatch(eku -> eku.isCompatibleWith(keyUsages));
-    }
-
-    public CertificateProfile(
-        ProfileId id,
-        String alias,
-        String description,
-        int defaultValidityDays,
-        int maxValidityDays,
-        SubjectKeyPolicy subjectKeyPolicy,
-        SanPolicy sanPolicy,
-        String subjectOrganization,
-        String subjectOrganizationalUnit,
-        String subjectLocality,
-        String subjectState,
-        String subjectCountry,
-        boolean isCa,
-        Integer pathLenConstraint,
-        Set<KeyUsage> keyUsages,
-        Set<ExtendedKeyUsageOid> extendedKeyUsages) {
-        this.id = id;
-        this.alias = alias;
-        this.description = description;
-        this.defaultValidityDays = defaultValidityDays;
-        this.maxValidityDays = maxValidityDays;
-        this.subjectKeyPolicy = subjectKeyPolicy;
-        this.sanPolicy = sanPolicy;
-        this.subjectOrganization = subjectOrganization;
-        this.subjectOrganizationalUnit = subjectOrganizationalUnit;
-        this.subjectLocality = subjectLocality;
-        this.subjectState = subjectState;
-        this.subjectCountry = subjectCountry;
-        this.isCa = isCa;
-        this.pathLenConstraint = pathLenConstraint;
-        this.keyUsages = keyUsages;
-        this.extendedKeyUsages = extendedKeyUsages;
+                                .filter(Objects::nonNull)
+                                .allMatch(eku -> eku.isCompatibleWith(keyUsages));
     }
 
     public void activate() {
@@ -139,7 +99,7 @@ public class CertificateProfile {
     }
 
     public CertificateProfile duplicate() {
-        return new CertificateProfile(
+        CertificateProfile copy = new CertificateProfile(
             new ProfileId(UUID.randomUUID().toString()), // 새로운 ID 생성
             this.alias + " (복제)", // 복제된 프로파일의 alias를 변경
             this.description,
@@ -147,14 +107,12 @@ public class CertificateProfile {
             this.maxValidityDays,
             this.subjectKeyPolicy,
             this.sanPolicy,
-            this.subjectOrganization,
-            this.subjectOrganizationalUnit,
-            this.subjectLocality,
-            this.subjectState,
-            this.subjectCountry,
+            this.subjectPolicy,
             this.isCa,
             this.pathLenConstraint,
             Set.copyOf(this.keyUsages),
             Set.copyOf(this.extendedKeyUsages));
+        copy.setAllowedSignatures(Set.copyOf(this.allowedSignatures));
+        return copy;
     }
 }

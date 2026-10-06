@@ -1,14 +1,12 @@
 package toy.pki.kms.adapter.id.jca;
 
+import jakarta.validation.constraints.NotNull;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.HexFormat;
-
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
-
-import jakarta.validation.constraints.NotNull;
 import toy.pki.kms.application.port.KeyIdGenerator;
 import toy.pki.kms.domain.key.KeyId;
 

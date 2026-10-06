@@ -22,17 +22,20 @@
 </div>
 
 <!--/* 인증서 상태 배지: VALID | ON_HOLD | REVOKED | EXPIRED */-->
-<span class="badge" th:classappend="${status == null} ? 'b-neutral' : (${status.name() == 'VALID'} ? 'b-ok' : (${status.name() == 'ON_HOLD'} ? 'b-warn' : (${status.name() == 'REVOKED'} ? 'b-danger' : 'b-neutral')))"
+<span class="badge"
+      th:classappend="${status == null} ? 'b-neutral' : (${status.name() == 'VALID'} ? 'b-ok' : (${status.name() == 'ON_HOLD'} ? 'b-warn' : (${status.name() == 'REVOKED'} ? 'b-danger' : 'b-neutral')))"
       th:fragment="certStatus(status)"
       th:insert="~{pki/fragments/ui :: label('CertStatus', ${status})}">유효</span>
 
 <!--/* 프로파일 상태 배지: ACTIVE | DRAFT | RETIRED */-->
-<span class="badge" th:classappend="${status == null} ? 'b-neutral' : (${status.name() == 'ACTIVE'} ? 'b-ok' : (${status.name() == 'DRAFT'} ? 'b-warn' : 'b-neutral'))"
+<span class="badge"
+      th:classappend="${status == null} ? 'b-neutral' : (${status.name() == 'ACTIVE'} ? 'b-ok' : (${status.name() == 'DRAFT'} ? 'b-warn' : 'b-neutral'))"
       th:fragment="profileStatus(status)"
       th:text="${status}">ACTIVE</span>
 
 <!--/* 감사로그 결과 배지: SUCCESS | FAILURE */-->
-<span class="badge" th:classappend="${result == null} ? 'b-neutral' : (${result.name() == 'SUCCESS'} ? 'b-ok' : 'b-danger')"
+<span class="badge"
+      th:classappend="${result == null} ? 'b-neutral' : (${result.name() == 'SUCCESS'} ? 'b-ok' : 'b-danger')"
       th:fragment="auditResult(result)"
       th:insert="~{pki/fragments/ui :: label('AuditResult', ${result})}">성공</span>
 

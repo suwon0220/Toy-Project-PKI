@@ -7,8 +7,8 @@ import java.security.PublicKey;
 import toy.pki.kms.domain.key.signature.SignatureParameters;
 
 public interface JcaSignatureOperator {
-    public boolean supports(SignatureParameters parameters);
-    public byte[] sign(PrivateKey privateKey, SignatureParameters parameters, byte[] data)
+    boolean supports(SignatureParameters parameters);
+    byte[] sign(PrivateKey privateKey, SignatureParameters parameters, byte[] data)
         throws GeneralSecurityException;
     boolean verify(PublicKey publicKey, SignatureParameters parameters, byte[] data, byte[] signature)
         throws GeneralSecurityException;

@@ -1,18 +1,16 @@
 package toy.pki.kms.application.service;
 
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.NoSuchElementException;
-
-import org.springframework.stereotype.Service;
-import org.springframework.validation.annotation.Validated;
-
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
 import toy.pki.kms.application.model.GeneratedKeyMaterial;
 import toy.pki.kms.application.model.KeySearchCriteria;
 import toy.pki.kms.application.port.KeyIdGenerator;
@@ -41,8 +39,8 @@ public class KeyManagementService {
 
     public ManagedKey findById(@NotNull KeyId keyId) {
         return keyRepository.findById(keyId)
-            .orElseThrow(() -> new NoSuchElementException(
-                "Key not found: " + keyId.value()));
+                            .orElseThrow(() -> new NoSuchElementException(
+                                "Key not found: " + keyId.value()));
     }
 
     public List<ManagedKey> findAll() {
@@ -105,8 +103,8 @@ public class KeyManagementService {
         SignatureParameters parameters,
         byte[] data) {
         ManagedKey managedKey = keyRepository.findById(keyId)
-            .orElseThrow(() -> new NoSuchElementException(
-                "Managed key not found: " + keyId.value()));
+                                             .orElseThrow(() -> new NoSuchElementException(
+                                                 "Managed key not found: " + keyId.value()));
 
         KeyMaterialProvider provider = keyMaterialProviderRegistry.get(
             managedKey.getKeyProviderId());
@@ -123,8 +121,8 @@ public class KeyManagementService {
         byte[] data,
         byte[] signature) {
         ManagedKey managedKey = keyRepository.findById(keyId)
-            .orElseThrow(() -> new NoSuchElementException(
-                "Managed key not found: " + keyId.value()));
+                                             .orElseThrow(() -> new NoSuchElementException(
+                                                 "Managed key not found: " + keyId.value()));
 
         KeyMaterialProvider provider = keyMaterialProviderRegistry.get(
             managedKey.getKeyProviderId());

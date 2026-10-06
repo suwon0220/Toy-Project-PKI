@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import toy.pki.kms.adapter.keymaterial.jca.JcaSignatureOperator;
 
 public abstract class AbstractJcaSignatureOperator implements JcaSignatureOperator {
-    @Autowired 
+    @Autowired
     protected Provider provider;
 
 }

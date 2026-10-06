@@ -1,5 +1,7 @@
 package toy.pki.kms.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.nio.charset.StandardCharsets;
 import java.security.Provider;
 import java.security.PublicKey;
@@ -8,14 +10,11 @@ import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
 import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
 import toy.pki.kms.application.registry.KeyMaterialProviderRegistry;
 import toy.pki.kms.application.service.KeyManagementService;
 import toy.pki.kms.domain.key.HashAlgorithm;
@@ -42,69 +41,6 @@ class KeyManagementServiceTest {
     @Autowired private KeyMaterialProviderRegistry keyMaterialProviderRegistry;
 
     @Autowired private Provider cryptographicProvider;
-
-    @ParameterizedTest(name = "[{index}] in-memory / {0}")
-    @MethodSource("keyGenerationParameters")
-    void testInMemoryGenerate(KeyGenerationParameters parameters) throws Exception {
-        // Given
-
-        // When
-        ManagedKey managedKey = keyManagementService.generate(providerId, parameters);
-
-        // Then
-        assertThat(managedKey).isNotNull();
-        assertThat(managedKey.getKeyId()).isNotNull();
-        assertThat(managedKey.getKeyAlgorithm()).isEqualTo(parameters.algorithm());
-        assertThat(managedKey.getKeyGenerationParameters()).isEqualTo(parameters);
-        assertThat(managedKey.getKeyMaterialRef()).isNotNull();
-        assertThat(managedKey.getKeyProviderId().value()).isEqualTo(providerId);
-        assertThat(managedKey.getCreatedAt()).isNotNull();
-    }
-
-    @ParameterizedTest(name = "[{index}] in-memory / {2}")
-    @MethodSource("signatureCases")
-    void testInMemorySign(
-        KeyGenerationParameters keyParameters,
-        SignatureParameters signatureParameters,
-        String jcaAlgorithm,
-        AlgorithmParameterSpec verificationParameters) throws Exception {
-        // Given
-        ManagedKey managedKey = keyManagementService.generate(
-            "in-memory",
-            keyParameters);
-        byte[] data = "hello".getBytes(StandardCharsets.UTF_8);
-
-        PublicKey publicKey = keyMaterialProviderRegistry
-            .get(managedKey.getKeyProviderId())
-            .getPublicKey(managedKey.getKeyMaterialRef())
-            .orElseThrow();
-
-        // When
-        byte[] signed = keyManagementService.sign(
-            managedKey.getKeyId(),
-            signatureParameters,
-            data);
-
-        // Then: 원본 데이터 검증 성공
-        assertThat(signed).isNotEmpty();
-
-        Signature verifier = Signature.getInstance(
-            jcaAlgorithm,
-            cryptographicProvider);
-        if (verificationParameters != null) {
-            verifier.setParameter(verificationParameters);
-        }
-        verifier.initVerify(publicKey);
-        verifier.update(data);
-
-        assertThat(verifier.verify(signed)).isTrue();
-
-        // 변조된 데이터 검증 실패
-        verifier.initVerify(publicKey);
-        verifier.update("tampered".getBytes(StandardCharsets.UTF_8));
-
-        assertThat(verifier.verify(signed)).isFalse();
-    }
 
     static Stream<KeyGenerationParameters> keyGenerationParameters() {
         return Stream.of(
@@ -214,6 +150,69 @@ class KeyManagementServiceTest {
                 new Ed448SignatureParameters(),
                 "Ed448",
                 null));
+    }
+
+    @ParameterizedTest(name = "[{index}] in-memory / {0}")
+    @MethodSource("keyGenerationParameters")
+    void testInMemoryGenerate(KeyGenerationParameters parameters) throws Exception {
+        // Given
+
+        // When
+        ManagedKey managedKey = keyManagementService.generate(providerId, parameters);
+
+        // Then
+        assertThat(managedKey).isNotNull();
+        assertThat(managedKey.getKeyId()).isNotNull();
+        assertThat(managedKey.getKeyAlgorithm()).isEqualTo(parameters.algorithm());
+        assertThat(managedKey.getKeyGenerationParameters()).isEqualTo(parameters);
+        assertThat(managedKey.getKeyMaterialRef()).isNotNull();
+        assertThat(managedKey.getKeyProviderId().value()).isEqualTo(providerId);
+        assertThat(managedKey.getCreatedAt()).isNotNull();
+    }
+
+    @ParameterizedTest(name = "[{index}] in-memory / {2}")
+    @MethodSource("signatureCases")
+    void testInMemorySign(
+        KeyGenerationParameters keyParameters,
+        SignatureParameters signatureParameters,
+        String jcaAlgorithm,
+        AlgorithmParameterSpec verificationParameters) throws Exception {
+        // Given
+        ManagedKey managedKey = keyManagementService.generate(
+            "in-memory",
+            keyParameters);
+        byte[] data = "hello".getBytes(StandardCharsets.UTF_8);
+
+        PublicKey publicKey = keyMaterialProviderRegistry
+            .get(managedKey.getKeyProviderId())
+            .getPublicKey(managedKey.getKeyMaterialRef())
+            .orElseThrow();
+
+        // When
+        byte[] signed = keyManagementService.sign(
+            managedKey.getKeyId(),
+            signatureParameters,
+            data);
+
+        // Then: 원본 데이터 검증 성공
+        assertThat(signed).isNotEmpty();
+
+        Signature verifier = Signature.getInstance(
+            jcaAlgorithm,
+            cryptographicProvider);
+        if (verificationParameters != null) {
+            verifier.setParameter(verificationParameters);
+        }
+        verifier.initVerify(publicKey);
+        verifier.update(data);
+
+        assertThat(verifier.verify(signed)).isTrue();
+
+        // 변조된 데이터 검증 실패
+        verifier.initVerify(publicKey);
+        verifier.update("tampered".getBytes(StandardCharsets.UTF_8));
+
+        assertThat(verifier.verify(signed)).isFalse();
     }
 
 }
