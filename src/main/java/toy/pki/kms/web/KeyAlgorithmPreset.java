@@ -1,10 +1,10 @@
 package toy.pki.kms.web;
 
-import toy.pki.kms.domain.key.generation.EcKeyGenerationParameters;
-import toy.pki.kms.domain.key.generation.Ed25519KeyGenerationParameters;
-import toy.pki.kms.domain.key.generation.Ed448KeyGenerationParameters;
-import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
-import toy.pki.kms.domain.key.generation.RsaKeyGenerationParameters;
+import toy.pki.kms.domain.generation.EcKeyGenerationParameters;
+import toy.pki.kms.domain.generation.Ed25519KeyGenerationParameters;
+import toy.pki.kms.domain.generation.Ed448KeyGenerationParameters;
+import toy.pki.kms.domain.generation.KeyGenerationParameters;
+import toy.pki.kms.domain.generation.RsaKeyGenerationParameters;
 
 public enum KeyAlgorithmPreset {
     RSA_2048,
@@ -29,6 +29,10 @@ public enum KeyAlgorithmPreset {
             return "EC_" + ec.curve();
         }
         return parameters.algorithm().name();
+    }
+
+    public static KeyAlgorithmPreset fromString(String name) throws IllegalArgumentException {
+        return KeyAlgorithmPreset.valueOf(name);
     }
 
     public KeyGenerationParameters toParameters() {

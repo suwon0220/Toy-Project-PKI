@@ -10,8 +10,8 @@ import java.security.Signature;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import org.springframework.stereotype.Component;
-import toy.pki.kms.domain.key.signature.EcdsaSignatureParameters;
-import toy.pki.kms.domain.key.signature.SignatureParameters;
+import toy.pki.kms.domain.signature.EcdsaSignatureParameters;
+import toy.pki.kms.domain.signature.SignatureParameters;
 
 @Component
 public class EcdsaSignatureOperator extends AbstractJcaSignatureOperator {

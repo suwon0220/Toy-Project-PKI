@@ -9,8 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import toy.pki.kms.application.model.KeySearchCriteria;
 import toy.pki.kms.application.port.KeyRepository;
-import toy.pki.kms.domain.key.KeyId;
-import toy.pki.kms.domain.key.ManagedKey;
+import toy.pki.kms.domain.KeyId;
+import toy.pki.kms.domain.ManagedKey;
 
 @Slf4j
 @Repository

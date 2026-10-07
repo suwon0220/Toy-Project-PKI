@@ -11,6 +11,7 @@ import toy.pki.ca.application.profile.model.UpdateProfileCommand;
 import toy.pki.ca.application.profile.port.CertificateProfileRepository;
 import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.ProfileId;
+import toy.pki.ca.domain.profile.ProfileStatus;
 
 @Slf4j
 @Data
@@ -28,16 +29,12 @@ public class CertificateProfileService {
             request.defaultValidityDays(),
             request.maxValidityDays(),
             request.subjectKeyPolicy(),
+            request.allowedSignatures(),
             request.sanPolicy(),
-            request.subjectOrganization(),
-            request.subjectOrganizationalUnit(),
-            request.subjectLocality(),
-            request.subjectState(),
-            request.subjectCountry(),
+            request.dnPolicy(),
             request.certificateType(),
             request.pathLenConstraint(),
-            request.keyUsages(),
-            request.extendedKeyUsages());
+            request.keyUsages(), request.extendedKeyUsages());
         repository.save(profile);
         return profile.getId();
     }
@@ -53,18 +50,17 @@ public class CertificateProfileService {
 
     public void updateDraft(UpdateProfileCommand request) {
         repository.findById(new ProfileId(request.id())).ifPresent(profile -> {
+            if (profile.getStatus() != ProfileStatus.DRAFT) {
+                throw new IllegalStateException("Only DRAFT profiles can be updated.");
+            }
             profile.setAlias(request.alias());
             profile.setDescription(request.description());
             profile.setDefaultValidityDays(request.defaultValidityDays());
             profile.setMaxValidityDays(request.maxValidityDays());
             profile.setSubjectKeyPolicy(request.subjectKeyPolicy());
             profile.setSanPolicy(request.sanPolicy());
-            profile.setSubjectOrganization(request.subjectOrganization());
-            profile.setSubjectOrganizationalUnit(request.subjectOrganizationalUnit());
-            profile.setSubjectLocality(request.subjectLocality());
-            profile.setSubjectState(request.subjectState());
-            profile.setSubjectCountry(request.subjectCountry());
-            profile.setCa(request.ca());
+            profile.setDnPolicy(request.dnPolicy());
+            profile.setCertificateType(request.certificateType());
             profile.setPathLenConstraint(request.pathLenConstraint());
             profile.setKeyUsages(request.keyUsages());
             profile.setExtendedKeyUsages(request.extendedKeyUsages());
@@ -79,15 +75,11 @@ public class CertificateProfileService {
     }
 
     public void activate(String profileId) {
-        repository.findById(new ProfileId(profileId)).ifPresent(profile -> {
-            profile.activate();
-        });
+        repository.findById(new ProfileId(profileId)).ifPresent(CertificateProfile::activate);
     }
 
     public void deactivate(String profileId) {
-        repository.findById(new ProfileId(profileId)).ifPresent(profile -> {
-            profile.deactivate();
-        });
+        repository.findById(new ProfileId(profileId)).ifPresent(CertificateProfile::deactivate);
     }
 
     public void delete(String profileId) {

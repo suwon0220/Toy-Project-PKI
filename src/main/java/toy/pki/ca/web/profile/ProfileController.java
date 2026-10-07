@@ -28,9 +28,9 @@ import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.ExtendedKeyUsageOid;
 import toy.pki.ca.domain.profile.KeyUsage;
 import toy.pki.ca.domain.profile.ProfileId;
-import toy.pki.ca.domain.profile.SanPolicy;
+import toy.pki.ca.domain.policy.SanPolicy;
 import toy.pki.ca.domain.profile.SanType;
-import toy.pki.ca.domain.profile.SubjectKeyPolicy;
+import toy.pki.ca.domain.policy.SubjectKeyPolicy;
 import toy.pki.ca.domain.profile.SubjectKeySpec;
 import toy.pki.kms.web.KeyAlgorithmPreset;
 
@@ -49,7 +49,21 @@ public class ProfileController {
 
     @ModelAttribute("createProfileForm")
     public CreateProfileForm createProfileForm() {
-        return new CreateProfileForm();
+        return new CreateProfileForm(
+            "",
+            "",
+            365,
+            365,
+            new HashSet<>(),
+            new HashSet<>(),
+            false,
+            new HashSet<>(),
+            null,
+            null,
+            null,
+            new HashSet<>(),
+            new HashSet<>()
+        );
     }
 
     @ModelAttribute
@@ -80,9 +94,6 @@ public class ProfileController {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "프로파일을 찾을 수 없습니다", e);
             }
             CreateProfileForm form = CreateProfileForm.from(profile);
-            if ("new".equals(mode)) {
-                form.setAlias(null);
-            }
             model.addAttribute("selectedProfile", profile);
             model.addAttribute("createProfileForm", form);
         }
@@ -108,12 +119,13 @@ public class ProfileController {
             createProfileForm.isSanRequired(),
             Set.copyOf(createProfileForm.getAllowedSanTypes()));
 
-        Set<ExtendedKeyUsageOid> extendedKeyUsages = createProfileForm.getExtendedKeyUsageOids()
-                                                                      .stream()
-                                                                      .filter(oid -> oid != null && !oid.isBlank())
-                                                                      .map(String::strip)
-                                                                      .map(ExtendedKeyUsageOid::new)
-                                                                      .collect(Collectors.toSet());
+        Set<ExtendedKeyUsageOid> extendedKeyUsages =
+            createProfileForm.getExtendedKeyUsageOids()
+                             .stream()
+                             .filter(oid -> oid != null && !oid.isBlank())
+                             .map(String::strip)
+                             .map(ExtendedKeyUsageOid::new)
+                             .collect(Collectors.toSet());
 
         CreateProfileCommand request = new CreateProfileCommand(
             createProfileForm.getAlias(),
@@ -121,13 +133,10 @@ public class ProfileController {
             createProfileForm.getDefaultValidityDays(),
             createProfileForm.getMaxValidityDays(),
             subjectKeyPolicy,
+            createProfileForm.getAllowedSignatures(),
             sanPolicy,
-            createProfileForm.getSubjectOrganization(),
-            createProfileForm.getSubjectOrganizationalUnit(),
-            createProfileForm.getSubjectLocality(),
-            createProfileForm.getSubjectState(),
-            createProfileForm.getSubjectCountry(),
-            createProfileForm.isCa(),
+            createProfileForm.getDnPolicy(),
+            createProfileForm.getCertificateType(),
             createProfileForm.getPathLenConstraint(),
             createProfileForm.getKeyUsages(),
             extendedKeyUsages);
@@ -172,12 +181,8 @@ public class ProfileController {
             updateProfileForm.getMaxValidityDays(),
             subjectKeyPolicy,
             sanPolicy,
-            updateProfileForm.getSubjectOrganization(),
-            updateProfileForm.getSubjectOrganizationalUnit(),
-            updateProfileForm.getSubjectLocality(),
-            updateProfileForm.getSubjectState(),
-            updateProfileForm.getSubjectCountry(),
-            updateProfileForm.isCa(),
+            updateProfileForm.getDnPolicy(),
+            updateProfileForm.getCertificateType(),
             updateProfileForm.getPathLenConstraint(),
             updateProfileForm.getKeyUsages(),
             extendedKeyUsages);

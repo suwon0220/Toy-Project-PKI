@@ -7,8 +7,8 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
 import org.springframework.stereotype.Component;
-import toy.pki.kms.domain.key.signature.Ed25519SignatureParameters;
-import toy.pki.kms.domain.key.signature.SignatureParameters;
+import toy.pki.kms.domain.signature.Ed25519SignatureParameters;
+import toy.pki.kms.domain.signature.SignatureParameters;
 
 @Component
 public class Ed25519SignatureOperator extends AbstractJcaSignatureOperator {

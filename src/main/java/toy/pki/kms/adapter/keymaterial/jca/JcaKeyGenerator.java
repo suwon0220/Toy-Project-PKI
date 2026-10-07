@@ -4,7 +4,7 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 
-import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
+import toy.pki.kms.domain.generation.KeyGenerationParameters;
 
 public interface JcaKeyGenerator {
     boolean supports(KeyGenerationParameters parameters);

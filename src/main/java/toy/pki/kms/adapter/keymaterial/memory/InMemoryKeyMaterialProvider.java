@@ -19,10 +19,10 @@ import toy.pki.kms.adapter.keymaterial.jca.JcaSignatureOperator;
 import toy.pki.kms.application.exception.KeyMaterialProviderException;
 import toy.pki.kms.application.model.GeneratedKeyMaterial;
 import toy.pki.kms.application.port.KeyMaterialProvider;
-import toy.pki.kms.domain.key.KeyMaterialRef;
-import toy.pki.kms.domain.key.KeyProviderId;
-import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
-import toy.pki.kms.domain.key.signature.SignatureParameters;
+import toy.pki.kms.domain.KeyMaterialRef;
+import toy.pki.kms.domain.KeyProviderId;
+import toy.pki.kms.domain.generation.KeyGenerationParameters;
+import toy.pki.kms.domain.signature.SignatureParameters;
 import toy.pki.kms.infrastructure.jca.keygenerator.JcaKeyGeneratorRegistry;
 import toy.pki.kms.infrastructure.jca.signer.JcaSignatureOperatorRegistry;
 

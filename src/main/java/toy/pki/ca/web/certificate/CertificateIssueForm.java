@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import toy.pki.ca.domain.certificate.CertificateId;
 import toy.pki.ca.domain.profile.ProfileId;
-import toy.pki.kms.web.KeyAlgorithmPreset;
+import toy.pki.ca.domain.profile.SubjectKeySpec;
 
 @Data
 @NoArgsConstructor
@@ -26,18 +26,18 @@ public class CertificateIssueForm {
 
     private KeyMode keyMode;
     private String keyAlias;
-    private KeyAlgorithmPreset keyAlgorithmPreset;
+    private SubjectKeySpec subjectKeySpec;
     private String kmsKeyId;
 
+    // 발급 요청의 실제 DN 값. 검증 규칙은 프로파일의 DnPolicy에 둡니다.
     private SubjectDnForm subjectDn = new SubjectDnForm();
 
     @Data
     public static class SubjectDnForm {
+        private String domainComponent;
         private String commonName;
         private String organization;
-        private String organizationalUnit;
-        private String locality;
-        private String stateOrProvince;
+        private String organizationUnit;
         private String country;
     }
 }

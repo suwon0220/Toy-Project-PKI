@@ -4,6 +4,11 @@
   Model: profiles, createProfileForm, selectedProfile(선택), creating(생성 검증 실패),
          keyAlgorithmPresets, keyUsages, sanTypes, extendedKeyUsageOptions.
   생성·편집·복제 화면은 CreateProfileForm의 입력 필드를 공유한다.
+  - certificateType: ROOT_CA · INTERMEDIATE_CA · END_ENTITY (CA 두 종류일 때만 Basic Constraints 표시, pki.css).
+  - keyAlgorithms: SubjectKeySpec, allowedSignatures: CertificateSignatureAlgorithm (UNKNOWN 제외).
+  - dnPolicy: DC · CN · O · OU · C 마다 required · fixedValue (DnAttribute).
+    record 라 th:field · #fields.hasErrors('dnPolicy.x') 가 중첩 경로를 자동 생성하려다 실패하므로
+    name/value 를 직접 두고 오류는 dnPolicy 단위로만 표시한다.
   검색 · 종류 · 상태 필터와 표 정렬은 pki.js 가 화면에서 처리한다 (컨트롤러 파라미터 없음).
 */-->
 <html lang="ko" th:replace="~{pki/fragments/layout :: shell('인증서 프로파일', ~{::main}, 'profiles')}"
@@ -45,8 +50,9 @@
             <label class="lbl" for="pct">종류</label>
             <select class="f" data-filter-field="certType" data-filter-target="#profile-list" id="pct">
                 <option value="">전체</option>
-                <option value="LEAF">Leaf</option>
-                <option value="CA">CA</option>
+                <option value="END_ENTITY">End Entity</option>
+                <option value="INTERMEDIATE_CA">Intermediate CA</option>
+                <option value="ROOT_CA">Root CA</option>
             </select>
         </div>
     </div>
@@ -70,18 +76,19 @@
             </div>
             <div data-sort-body>
                 <a class="glist-row" th:aria-label="|${name} 프로파일 열기|"
-                   th:attr="data-k-name=${name}, data-k-cert-type=${p.ca ? 'CA' : 'LEAF'}, data-k-status=${p.status},
+                   th:attr="data-k-name=${name}, data-k-cert-type=${p.certificateType ?: ''}, data-k-status=${p.status},
                             data-k-max-valid-days=${p.maxValidityDays},
                             data-search=${name + ' ' + (p.description ?: '')}"
                    th:classappend="${isEdit and pid == selectedId} ? 'is-selected'"
                    th:each="p : ${profileList}"
                    th:href="@{/pki/profiles(profileId=${pid})}"
-                   th:with="pid=${p.id.value()}, name=${p.alias} ?: '(별칭 없음)'">
+                   th:with="pid=${p.id.value()}, name=${p.alias} ?: '(별칭 없음)',
+                            typeLabel=${p.certificateType != null} ? ${#messages.msgOrNull('enum.CertificateType.' + p.certificateType) ?: p.certificateType.name()} : '—'">
                     <span class="glist-cell">
                         <span class="glist-primary" th:text="${name}">tls-server</span>
                         <span class="glist-sub" th:if="${p.description}" th:text="${p.description}">TLS 서버 인증서</span>
                     </span>
-                    <span th:text="${p.ca} ? 'CA' : 'Leaf'">Leaf</span>
+                    <span th:text="${typeLabel}">End Entity</span>
                     <span><span th:replace="~{pki/fragments/ui :: profileStatus(${p.status})}">ACTIVE</span></span>
                     <code class="glist-mono" th:text="|${p.maxValidityDays}일|">397일</code>
                 </a>
@@ -127,8 +134,12 @@
     </div>
 </main>
 
-<!--/* 폼 입력 영역. 바깥 form 의 th:object 를 그대로 쓴다. */-->
-<th:block th:fragment="formBody(form, isNew, isCopy, isEdit, noProfiles, status, profileId)">
+<!--/* 폼 입력 영역. 바깥 form 의 th:object 를 그대로 쓴다.
+     DRAFT 프로파일만 수정할 수 있다. ACTIVE · INACTIVE 편집 시 입력 영역 전체를 <fieldset disabled> 로 잠근다
+     (disabled 값은 전송되지 않으며 [수정] 버튼도 숨긴다). 상태 전환 · 삭제 버튼은 fieldset 밖이라 그대로 쓸 수 있다.
+     내용을 바꾸려면 복제해서 새 DRAFT 를 만든다. */-->
+<th:block th:fragment="formBody(form, isNew, isCopy, isEdit, noProfiles, status, profileId)"
+          th:with="locked=${isEdit and (status == null or status.name() != 'DRAFT')}">
     <div th:replace="~{pki/fragments/ui :: globalErrors}"></div>
 
     <div class="intro" role="status" th:if="${isNew and noProfiles}">
@@ -136,6 +147,11 @@
         <div class="intro-desc">프로파일이 없으면 인증서를 발급할 수 없어요. DRAFT로 만든 뒤 [활성화]하면 발급 화면에 나타납니다.</div>
     </div>
 
+    <div class="notice" role="note" th:if="${locked}">
+        DRAFT 상태의 프로파일만 수정할 수 있습니다. 바꾸려면 [이 프로파일 복제해서 새로 만들기]로 새 DRAFT를 만드세요.
+    </div>
+
+    <fieldset class="plain profile-lock" th:disabled="${locked}">
     <section class="card">
         <div class="card-head">
             <h2 class="card-title"
@@ -167,31 +183,48 @@
 
         <fieldset class="plain">
             <legend class="lbl">인증서 종류 <span aria-hidden="true" class="req">*</span></legend>
-            <div class="grid-2" style="gap: 12px">
+            <div class="grid-3" style="gap: 12px">
                 <label class="choice">
-                    <input th:field="*{ca}" type="radio" value="false">
-                    <span><b>Leaf</b><br><span class="hint">서버·클라이언트·장비 인증서. CA:FALSE</span></span>
+                    <input th:field="*{certificateType}" type="radio" value="END_ENTITY">
+                    <span><b>End Entity</b><br><span class="hint">서버·클라이언트·장비 인증서. CA:FALSE</span></span>
                 </label>
                 <label class="choice">
-                    <input th:field="*{ca}" type="radio" value="true">
-                    <span><b>CA</b><br><span class="hint">인증서 발급에 사용하는 CA 인증서. CA:TRUE</span></span>
+                    <input th:field="*{certificateType}" type="radio" value="INTERMEDIATE_CA">
+                    <span><b>Intermediate CA</b><br><span class="hint">상위 CA가 서명하는 하위 CA. CA:TRUE</span></span>
+                </label>
+                <label class="choice">
+                    <input th:field="*{certificateType}" type="radio" value="ROOT_CA">
+                    <span><b>Root CA</b><br><span class="hint">신뢰 체인의 최상위 CA. CA:TRUE</span></span>
                 </label>
             </div>
-            <div class="err" th:each="e : ${#fields.errors('ca')}" th:text="${e}">종류 오류</div>
+            <div class="err" th:each="e : ${#fields.errors('certificateType')}" th:text="${e}">종류 오류</div>
         </fieldset>
     </section>
 
     <section class="card">
         <h2 class="card-title">발급 제한</h2>
         <div class="grid-2" style="gap: 16px 24px">
-            <fieldset class="plain">
-                <legend class="lbl">키 알고리즘 <span aria-hidden="true" class="req">*</span></legend>
-                <label class="ck" th:each="a : ${keyAlgorithmPresets}">
-                    <input th:field="*{keyAlgorithms}" th:value="${a}" type="checkbox"><span
-                        th:text="${a.name()}">EC_P256</span>
-                </label>
-                <div class="err" th:each="e : ${#fields.errors('keyAlgorithms')}" th:text="${e}">알고리즘 오류</div>
-            </fieldset>
+            <div class="stack" style="gap: 14px">
+                <fieldset class="plain">
+                    <legend class="lbl">키 알고리즘 <span aria-hidden="true" class="req">*</span></legend>
+                    <label class="ck" th:each="a : ${T(toy.pki.ca.domain.profile.SubjectKeySpec).values()}">
+                        <input th:field="*{keyAlgorithms}" th:value="${a}" type="checkbox"><span
+                            th:text="${#messages.msgOrNull('enum.KeyAlgorithm.' + a) ?: a.name()}">EC_P256</span>
+                    </label>
+                    <div class="err" th:each="e : ${#fields.errors('keyAlgorithms')}" th:text="${e}">알고리즘 오류</div>
+                </fieldset>
+                <fieldset class="plain">
+                    <legend class="lbl">서명 알고리즘 <span aria-hidden="true" class="req">*</span></legend>
+                    <label class="ck"
+                           th:each="sig : ${T(toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm).values().?[name() != 'UNKNOWN']}">
+                        <input th:field="*{allowedSignatures}" th:value="${sig}" type="checkbox"><span class="mono"
+                                                                                                      style="font-size: 13px"
+                                                                                                      th:text="${sig.jcaName}">SHA256withRSA</span>
+                    </label>
+                    <div class="err" th:each="e : ${#fields.errors('allowedSignatures')}" th:text="${e}">서명 알고리즘 오류</div>
+                    <div class="hint">이 프로파일로 발급할 때 CA가 쓸 수 있는 서명 알고리즘입니다.</div>
+                </fieldset>
+            </div>
             <div class="stack" style="gap: 14px">
                 <div class="field">
                     <label class="lbl" for="maxValidityDays">최대 유효기간(일)</label>
@@ -255,9 +288,9 @@
             </fieldset>
         </div>
 
-        <fieldset class="plain">
+        <fieldset class="plain sub-ca-only">
             <legend class="lbl">Basic Constraints</legend>
-            <div class="hint">CA 프로파일에만 pathLenConstraint를 지정합니다. Leaf에서는 비워 두세요.</div>
+            <div class="hint">Root CA · Intermediate CA 프로파일에만 pathLenConstraint를 지정합니다. KEY_CERT_SIGN이 필요합니다.</div>
             <div class="field" style="max-width: 280px; margin-top: 8px">
                 <label class="lbl" for="pathLenConstraint">pathLenConstraint</label>
                 <input class="f" min="0" th:classappend="${#fields.hasErrors('pathLenConstraint')} ? 'is-invalid'"
@@ -271,29 +304,52 @@
     <section class="card">
         <h2 class="card-title">Subject · SAN 정책</h2>
         <div class="grid-2" style="gap: 16px 24px">
-            <div class="stack" style="gap: 14px">
+            <fieldset class="plain stack" style="gap: 14px"
+                      th:with="dn=${form.dnPolicy}">
+                <legend class="lbl">Subject DN 정책</legend>
                 <div class="field">
-                    <label class="lbl" for="subjectOrganization">O 고정값 (선택)</label>
-                    <input class="f" maxlength="64" placeholder="[조직명]" th:field="*{subjectOrganization}" type="text">
+                    <label class="lbl" for="dnPolicy.domainComponent.fixedValue">DC 고정값 (선택)</label>
+                    <input class="f" id="dnPolicy.domainComponent.fixedValue" name="dnPolicy.domainComponent.fixedValue" placeholder="example"
+                           th:value="${dn?.domainComponent?.fixedValue}" type="text">
+                    <label class="ck"><input name="dnPolicy.domainComponent.required" th:checked="${dn?.domainComponent?.required == true}"
+                                             type="checkbox" value="true">필수</label>
+                    <input name="_subjectDnPolicy.domainComponent.required" type="hidden" value="on">
                 </div>
                 <div class="field">
-                    <label class="lbl" for="subjectOrganizationalUnit">OU 고정값 (선택)</label>
-                    <input class="f" th:field="*{subjectOrganizationalUnit}" type="text">
+                    <label class="lbl" for="dnPolicy.commonName.fixedValue">CN 고정값 (선택)</label>
+                    <input class="f" id="dnPolicy.commonName.fixedValue" maxlength="64" name="dnPolicy.commonName.fixedValue"
+                           th:value="${dn?.commonName?.fixedValue}" type="text">
+                    <label class="ck"><input name="dnPolicy.commonName.required" th:checked="${dn?.commonName?.required == true}"
+                                             type="checkbox" value="true">필수</label>
+                    <input name="_subjectDnPolicy.commonName.required" type="hidden" value="on">
                 </div>
                 <div class="field">
-                    <label class="lbl" for="subjectLocality">L 고정값 (선택)</label>
-                    <input class="f" th:field="*{subjectLocality}" type="text">
+                    <label class="lbl" for="dnPolicy.organization.fixedValue">O 고정값 (선택)</label>
+                    <input class="f" id="dnPolicy.organization.fixedValue" maxlength="64" name="dnPolicy.organization.fixedValue" placeholder="[조직명]"
+                           th:value="${dn?.organization?.fixedValue}" type="text">
+                    <label class="ck"><input name="dnPolicy.organization.required" th:checked="${dn?.organization?.required == true}"
+                                             type="checkbox" value="true">필수</label>
+                    <input name="_subjectDnPolicy.organization.required" type="hidden" value="on">
                 </div>
                 <div class="field">
-                    <label class="lbl" for="subjectState">ST 고정값 (선택)</label>
-                    <input class="f" th:field="*{subjectState}" type="text">
+                    <label class="lbl" for="dnPolicy.organizationUnit.fixedValue">OU 고정값 (선택)</label>
+                    <input class="f" id="dnPolicy.organizationUnit.fixedValue" maxlength="128" name="dnPolicy.organizationUnit.fixedValue" placeholder="[부서명]"
+                           th:value="${dn?.organizationUnit?.fixedValue}" type="text">
+                    <label class="ck"><input name="dnPolicy.organizationUnit.required" th:checked="${dn?.organizationUnit?.required == true}"
+                                             type="checkbox" value="true">필수</label>
+                    <input name="_subjectDnPolicy.organizationUnit.required" type="hidden" value="on">
                 </div>
                 <div class="field">
-                    <label class="lbl" for="subjectCountry">C 고정값 (선택)</label>
-                    <input class="f" maxlength="2" placeholder="KR" th:field="*{subjectCountry}" type="text">
+                    <label class="lbl" for="dnPolicy.country.fixedValue">C 고정값 (선택)</label>
+                    <input class="f" id="dnPolicy.country.fixedValue" maxlength="2" name="dnPolicy.country.fixedValue" placeholder="KR"
+                           th:value="${dn?.country?.fixedValue}" type="text">
+                    <label class="ck"><input name="dnPolicy.country.required" th:checked="${dn?.country?.required == true}"
+                                             type="checkbox" value="true">필수</label>
+                    <input name="_subjectDnPolicy.country.required" type="hidden" value="on">
                 </div>
-                <div class="hint">고정값이 있으면 요청 값은 무시됩니다.</div>
-            </div>
+                <div class="err" th:each="e : ${#fields.errors('dnPolicy')}" th:text="${e}">Subject 정책 오류</div>
+                <div class="hint">고정값이 있으면 발급 화면에서 그 값으로 채우고 수정할 수 없습니다. 필수는 발급 시 입력해야 하는 항목입니다.</div>
+            </fieldset>
             <fieldset class="plain">
                 <legend class="lbl">SAN 정책</legend>
                 <label class="ck"><input th:field="*{sanRequired}" type="checkbox">SAN 필수</label>
@@ -307,6 +363,7 @@
             </fieldset>
         </div>
     </section>
+    </fieldset>
 
     <!--/* 버튼은 오른쪽 정렬: 위험한 동작 → 상태 변경 → 취소 → 주 버튼. 상태 전환·삭제는 formaction 으로 보낸다. */-->
     <div class="actions actions-end" th:with="st=${status != null} ? ${status.name()} : ''">
@@ -324,7 +381,8 @@
             </button>
         </th:block>
         <a class="btn btn-outline btn-md" th:href="@{/pki/profiles}">취소</a>
-        <button class="btn btn-primary btn-md" th:text="${isEdit} ? '수정' : '생성'" type="submit">생성</button>
+        <button class="btn btn-primary btn-md" th:text="${isEdit} ? '수정' : '생성'" th:unless="${locked}"
+                type="submit">생성</button>
     </div>
 </th:block>
 </body>

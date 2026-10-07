@@ -11,7 +11,9 @@ import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
-import toy.pki.ca.domain.certificate.CertificateSubject;
+import toy.pki.ca.domain.policy.DnPolicy;
+import toy.pki.ca.domain.policy.SanPolicy;
+import toy.pki.ca.domain.policy.SubjectKeyPolicy;
 
 @Data
 @AllArgsConstructor
@@ -31,19 +33,17 @@ public class CertificateProfile {
     @NotNull
     @Valid
     private SubjectKeyPolicy subjectKeyPolicy;
-    private Set<CertificateSignatureAlgorithm> allowedSignatures = Set.of();
+    private Set<CertificateSignatureAlgorithm> allowedSignatures;
     // SAN Policy
     @NotNull private SanPolicy sanPolicy;
     // Subject Policy
-    private CertificateSubject subjectPolicy;
+    private DnPolicy dnPolicy;
     // Basic Constraints
-    private boolean isCa;
+    private CertificateType certificateType;
     private Integer pathLenConstraint;
     // Key Usage
     @NotEmpty private Set<@NotNull KeyUsage> keyUsages;
     @NotNull private Set<@NotNull @Valid ExtendedKeyUsageOid> extendedKeyUsages;
-
-
 
     @AssertTrue(message = "alias는 null이 아닐 경우 비어있을 수 없습니다")
     public boolean isValidAlias() {
@@ -62,13 +62,13 @@ public class CertificateProfile {
 
     @AssertTrue(message = "CA가 아닌 프로파일에는 KEY_CERT_SIGN을 설정할 수 없습니다")
     public boolean isValidCaKeyUsage() {
-        return keyUsages == null || isCa || !keyUsages.contains(KeyUsage.KEY_CERT_SIGN);
+        return keyUsages == null || certificateType != CertificateType.END_ENTITY || !keyUsages.contains(KeyUsage.KEY_CERT_SIGN);
     }
 
     @AssertTrue(message = "pathLenConstraint는 CA이며 KEY_CERT_SIGN이 설정된 경우에만 0 이상으로 지정할 수 있습니다")
     public boolean isValidPathLenConstraint() {
         return pathLenConstraint == null
-            || (isCa && pathLenConstraint >= 0
+            || (certificateType != CertificateType.END_ENTITY && pathLenConstraint >= 0
             && keyUsages != null && keyUsages.contains(KeyUsage.KEY_CERT_SIGN));
     }
 
@@ -90,6 +90,35 @@ public class CertificateProfile {
                                 .allMatch(eku -> eku.isCompatibleWith(keyUsages));
     }
 
+    public CertificateProfile(
+        ProfileId id,
+        String alias,
+        String description,
+        int defaultValidityDays,
+        int maxValidityDays,
+        SubjectKeyPolicy subjectKeyPolicy,
+        Set<CertificateSignatureAlgorithm> allowedSignatures,
+        SanPolicy sanPolicy,
+        DnPolicy dnPolicy,
+        CertificateType certificateType,
+        Integer pathLenConstraint,
+        Set<KeyUsage> keyUsages,
+        Set<ExtendedKeyUsageOid> extendedKeyUsages) {
+        this.id = id;
+        this.alias = alias;
+        this.description = description;
+        this.defaultValidityDays = defaultValidityDays;
+        this.maxValidityDays = maxValidityDays;
+        this.subjectKeyPolicy = subjectKeyPolicy;
+        this.allowedSignatures = allowedSignatures;
+        this.sanPolicy = sanPolicy;
+        this.dnPolicy = dnPolicy;
+        this.certificateType = certificateType;
+        this.pathLenConstraint = pathLenConstraint;
+        this.keyUsages = keyUsages;
+        this.extendedKeyUsages = extendedKeyUsages;
+    }
+
     public void activate() {
         this.status = ProfileStatus.ACTIVE;
     }
@@ -99,20 +128,19 @@ public class CertificateProfile {
     }
 
     public CertificateProfile duplicate() {
-        CertificateProfile copy = new CertificateProfile(
+        return new CertificateProfile(
             new ProfileId(UUID.randomUUID().toString()), // 새로운 ID 생성
             this.alias + " (복제)", // 복제된 프로파일의 alias를 변경
             this.description,
             this.defaultValidityDays,
             this.maxValidityDays,
             this.subjectKeyPolicy,
+            Set.copyOf(this.allowedSignatures),
             this.sanPolicy,
-            this.subjectPolicy,
-            this.isCa,
+            this.dnPolicy,
+            this.certificateType,
             this.pathLenConstraint,
             Set.copyOf(this.keyUsages),
             Set.copyOf(this.extendedKeyUsages));
-        copy.setAllowedSignatures(Set.copyOf(this.allowedSignatures));
-        return copy;
     }
 }

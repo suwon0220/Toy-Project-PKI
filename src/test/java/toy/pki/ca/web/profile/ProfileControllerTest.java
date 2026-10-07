@@ -23,15 +23,19 @@ import org.springframework.test.web.servlet.MvcResult;
 import toy.pki.ca.application.profile.model.CreateProfileCommand;
 import toy.pki.ca.application.profile.port.CertificateProfileRepository;
 import toy.pki.ca.application.profile.service.CertificateProfileService;
+import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
 import toy.pki.ca.domain.profile.CertificateProfile;
+import toy.pki.ca.domain.profile.CertificateType;
+import toy.pki.ca.domain.policy.DnAttributePolicy;
 import toy.pki.ca.domain.profile.ExtendedKeyUsageOid;
 import toy.pki.ca.domain.profile.KeyUsage;
 import toy.pki.ca.domain.profile.ProfileId;
 import toy.pki.ca.domain.profile.ProfileStatus;
-import toy.pki.ca.domain.profile.SanPolicy;
+import toy.pki.ca.domain.policy.SanPolicy;
 import toy.pki.ca.domain.profile.SanType;
-import toy.pki.ca.domain.profile.SubjectKeyPolicy;
-import toy.pki.kms.web.KeyAlgorithmPreset;
+import toy.pki.ca.domain.policy.DnPolicy;
+import toy.pki.ca.domain.policy.SubjectKeyPolicy;
+import toy.pki.ca.domain.profile.SubjectKeySpec;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -40,6 +44,29 @@ class ProfileControllerTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private CertificateProfileService service;
     @Autowired private CertificateProfileRepository repository;
+
+    @Test
+    void rendersInitializedRootCaProfile() throws Exception {
+        CertificateProfile profile = repository.findAll().stream()
+            .filter(candidate -> "V2G Root CA".equals(candidate.getAlias()))
+            .findFirst()
+            .orElseThrow();
+
+        MvcResult result = mockMvc.perform(get("/pki/profiles")
+                .param("profileId", profile.getId().value()))
+            .andExpect(status().isOk())
+            .andExpect(content().string(containsString("V2G Root CA")))
+            .andReturn();
+
+        CreateProfileForm form = (CreateProfileForm) result.getModelAndView()
+            .getModel().get("createProfileForm");
+        assertThat(form.getCertificateType()).isEqualTo(CertificateType.ROOT_CA);
+        assertThat(form.isSanRequired()).isFalse();
+        assertThat(form.getAllowedSanTypes()).isEmpty();
+        assertThat(form.getKeyUsages()).containsExactlyInAnyOrder(
+            KeyUsage.KEY_CERT_SIGN, KeyUsage.CRL_SIGN);
+        assertThat(form.getExtendedKeyUsageOids()).isEmpty();
+    }
 
     @Test
     void rendersListAndNewFormWithoutCreatingProfiles() throws Exception {
@@ -74,11 +101,11 @@ class ProfileControllerTest {
                                       .andReturn();
             CreateProfileForm form = (CreateProfileForm) result.getModelAndView().getModel().get("createProfileForm");
             assertThat(form.getAlias()).isEqualTo(profile.getAlias());
-            assertThat(form.getKeyAlgorithms()).containsExactly(KeyAlgorithmPreset.RSA_2048);
+            assertThat(form.getKeyAlgorithms()).containsExactly(SubjectKeySpec.RSA_2048);
             assertThat(form.getAllowedSanTypes()).containsExactly(SanType.DNS_NAME);
             assertThat(form.getExtendedKeyUsageOids()).containsExactlyInAnyOrder(
                 "1.3.6.1.5.5.7.3.1", "1.3.6.1.4.1.55555.1");
-            assertThat(form.isCa()).isTrue();
+            assertThat(form.getCertificateType()).isEqualByComparingTo(CertificateType.ROOT_CA);
         } finally {
             repository.delete(profile.getId());
         }
@@ -144,7 +171,7 @@ class ProfileControllerTest {
                                                    .orElseThrow();
             createdId = created.getId();
             assertThat(created.getStatus()).isEqualTo(ProfileStatus.DRAFT);
-            assertThat(created.getSubjectKeyPolicy().allows(KeyAlgorithmPreset.EC_P256.toParameters())).isTrue();
+            assertThat(created.getSubjectKeyPolicy().allows(SubjectKeySpec.EC_P256)).isTrue();
             assertThat(created.getSanPolicy().required()).isTrue();
             assertThat(created.getSanPolicy()
                               .allowedTypes()).containsExactlyInAnyOrder(SanType.DNS_NAME, SanType.IP_ADDRESS);
@@ -172,9 +199,17 @@ class ProfileControllerTest {
     private CertificateProfile fixture() {
         ProfileId id = service.createDraft(new CreateProfileCommand(
             "profile-" + UUID.randomUUID(), "Description", 90, 730,
-            new SubjectKeyPolicy(Set.of(KeyAlgorithmPreset.RSA_2048.toParameters())),
+            new SubjectKeyPolicy(Set.of(SubjectKeySpec.RSA_2048)),
+            Set.of(CertificateSignatureAlgorithm.RSA_WITH_SHA256),
             new SanPolicy(true, Set.of(SanType.DNS_NAME)),
-            "Example", "Unit", "Seoul", "Seoul", "KR", true, 0,
+            new DnPolicy(
+                new DnAttributePolicy("Example"),
+                new DnAttributePolicy("Seoul"),
+                new DnAttributePolicy("Unit"),
+                new DnAttributePolicy("Seoul"),
+                new DnAttributePolicy(true, "KR")
+            ),
+            CertificateType.ROOT_CA, 0,
             Set.of(KeyUsage.KEY_CERT_SIGN, KeyUsage.DIGITAL_SIGNATURE),
             Set.of(new ExtendedKeyUsageOid("1.3.6.1.5.5.7.3.1"), new ExtendedKeyUsageOid("1.3.6.1.4.1.55555.1"))));
         return service.findById(id.value());

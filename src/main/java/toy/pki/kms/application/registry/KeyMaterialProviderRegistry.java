@@ -6,7 +6,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 import toy.pki.kms.application.port.KeyMaterialProvider;
-import toy.pki.kms.domain.key.KeyProviderId;
+import toy.pki.kms.domain.KeyProviderId;
 
 @Component
 public class KeyMaterialProviderRegistry {

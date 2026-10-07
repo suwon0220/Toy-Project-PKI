@@ -8,15 +8,19 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import toy.pki.ca.domain.profile.CertificateType;
+import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
 import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.ExtendedKeyUsageOid;
 import toy.pki.ca.domain.profile.KeyUsage;
 import toy.pki.ca.domain.profile.SanType;
+import toy.pki.ca.domain.policy.DnPolicy;
 import toy.pki.ca.domain.profile.SubjectKeySpec;
-import toy.pki.kms.web.KeyAlgorithmPreset;
 
 @Data
+@AllArgsConstructor
 public class CreateProfileForm {
 
     @NotBlank private String alias;
@@ -30,46 +34,40 @@ public class CreateProfileForm {
     @Min(1)
     private Integer maxValidityDays;
 
-    @NotEmpty private Set<SubjectKeySpec> keyAlgorithms = new LinkedHashSet<>();
+    @NotEmpty private Set<SubjectKeySpec> keyAlgorithms;
+    @NotEmpty private Set<CertificateSignatureAlgorithm> allowedSignatures;
 
     private boolean sanRequired;
-    private Set<SanType> allowedSanTypes = new LinkedHashSet<>();
+    private Set<SanType> allowedSanTypes;
 
-    private String subjectOrganization;
-    private String subjectOrganizationalUnit;
-    private String subjectLocality;
-    private String subjectState;
-    private String subjectCountry;
+    private DnPolicy dnPolicy;
 
-    private boolean ca;
+    private CertificateType certificateType;
     private Integer pathLenConstraint;
 
-    @NotEmpty private Set<KeyUsage> keyUsages = new LinkedHashSet<>();
+    @NotEmpty private Set<KeyUsage> keyUsages;
 
-    private Set<String> extendedKeyUsageOids = new LinkedHashSet<>();
+    private Set<String> extendedKeyUsageOids;
 
     public static CreateProfileForm from(CertificateProfile profile) {
-        CreateProfileForm form = new CreateProfileForm();
-        form.setAlias(profile.getAlias());
-        form.setDescription(profile.getDescription());
-        form.setDefaultValidityDays(profile.getDefaultValidityDays());
-        form.setMaxValidityDays(profile.getMaxValidityDays());
-        form.setKeyAlgorithms(Arrays.stream(KeyAlgorithmPreset.values())
-                                    .filter(preset -> profile.getSubjectKeyPolicy().allows(preset.toParameters()))
-                                    .collect(Collectors.toCollection(LinkedHashSet::new)));
-        form.setSanRequired(profile.getSanPolicy().required());
-        form.setAllowedSanTypes(new LinkedHashSet<>(profile.getSanPolicy().allowedTypes()));
-        form.setSubjectOrganization(profile.getSubjectOrganization());
-        form.setSubjectOrganizationalUnit(profile.getSubjectOrganizationalUnit());
-        form.setSubjectLocality(profile.getSubjectLocality());
-        form.setSubjectState(profile.getSubjectState());
-        form.setSubjectCountry(profile.getSubjectCountry());
-        form.setCa(profile.isCa());
-        form.setPathLenConstraint(profile.getPathLenConstraint());
-        form.setKeyUsages(new LinkedHashSet<>(profile.getKeyUsages()));
-        form.setExtendedKeyUsageOids(profile.getExtendedKeyUsages().stream()
-                                            .map(ExtendedKeyUsageOid::value)
-                                            .collect(Collectors.toCollection(LinkedHashSet::new)));
-        return form;
+        return new CreateProfileForm(
+            profile.getAlias(),
+            profile.getDescription(),
+            profile.getDefaultValidityDays(),
+            profile.getMaxValidityDays(),
+            Arrays.stream(SubjectKeySpec.values())
+                  .filter(subjectKeySpec -> profile.getSubjectKeyPolicy().allows(subjectKeySpec))
+                  .collect(Collectors.toCollection(LinkedHashSet::new)),
+            new LinkedHashSet<>(profile.getAllowedSignatures()),
+            profile.getSanPolicy().required(),
+            new LinkedHashSet<>(profile.getSanPolicy().allowedTypes()),
+            profile.getDnPolicy(),
+            profile.getCertificateType(),
+            profile.getPathLenConstraint(),
+            new LinkedHashSet<>(profile.getKeyUsages()),
+            profile.getExtendedKeyUsages().stream()
+                   .map(ExtendedKeyUsageOid::value)
+                   .collect(Collectors.toCollection(LinkedHashSet::new))
+        );
     }
 }

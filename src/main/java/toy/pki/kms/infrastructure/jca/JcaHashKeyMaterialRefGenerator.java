@@ -6,7 +6,7 @@ import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import toy.pki.kms.application.port.KeyMaterialRefGenerator;
-import toy.pki.kms.domain.key.KeyMaterialRef;
+import toy.pki.kms.domain.KeyMaterialRef;
 
 @Component
 @RequiredArgsConstructor

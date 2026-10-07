@@ -4,7 +4,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import toy.pki.kms.adapter.keymaterial.jca.JcaSignatureOperator;
-import toy.pki.kms.domain.key.signature.SignatureParameters;
+import toy.pki.kms.domain.signature.SignatureParameters;
 
 @Component
 @RequiredArgsConstructor

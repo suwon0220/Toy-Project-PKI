@@ -6,10 +6,10 @@ import java.security.PublicKey;
 import java.util.Optional;
 
 import toy.pki.kms.application.model.GeneratedKeyMaterial;
-import toy.pki.kms.domain.key.KeyMaterialRef;
-import toy.pki.kms.domain.key.KeyProviderId;
-import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
-import toy.pki.kms.domain.key.signature.SignatureParameters;
+import toy.pki.kms.domain.KeyMaterialRef;
+import toy.pki.kms.domain.KeyProviderId;
+import toy.pki.kms.domain.generation.KeyGenerationParameters;
+import toy.pki.kms.domain.signature.SignatureParameters;
 
 public interface KeyMaterialProvider {
 

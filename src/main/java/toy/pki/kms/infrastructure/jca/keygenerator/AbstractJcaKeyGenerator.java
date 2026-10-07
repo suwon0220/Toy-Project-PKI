@@ -8,7 +8,7 @@ import java.security.Provider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import toy.pki.kms.adapter.keymaterial.jca.JcaKeyGenerator;
-import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
+import toy.pki.kms.domain.generation.KeyGenerationParameters;
 
 @RequiredArgsConstructor
 public abstract class AbstractJcaKeyGenerator implements JcaKeyGenerator {

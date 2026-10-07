@@ -4,7 +4,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import toy.pki.kms.adapter.keymaterial.jca.JcaKeyGenerator;
-import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
+import toy.pki.kms.domain.generation.KeyGenerationParameters;
 
 @Component
 @RequiredArgsConstructor

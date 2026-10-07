@@ -9,8 +9,9 @@
 
   카드 순서: 1. 인증서 프로파일 → 2. 발급 CA → 3. 키 (KMS) → 4. Subject.
   - 선택 프로파일 = profileId 와 같은 프로파일, 없으면 profiles 의 첫 항목.
-  - ACTIVE 프로파일만 표시한다. isCa는 인증서의 CA 여부이며 자체 서명 여부를 의미하지 않는다.
-  - 키 탭(keyMode): NEW = 새 KMS 키 생성(keyAlias·keyAlgorithmPreset), EXISTING = 기존 KMS 키 선택(kmsKeyId).
+  - ACTIVE 프로파일만 표시한다. certificateType(ROOT_CA · INTERMEDIATE_CA · END_ENTITY)은 인증서 종류이며,
+    ROOT_CA 는 자체 서명하므로 발급 CA 선택이 비활성화된다.
+  - 키 탭(keyMode): NEW = 새 KMS 키 생성(keyAlias·subjectKeySpec), EXISTING = 기존 KMS 키 선택(kmsKeyId).
     키 목록·알고리즘은 선택 프로파일이 허용하는 것만.
   - 프로파일을 바꾸면 숨은 #profileReload 버튼(GET)으로 다시 로딩한다.
   - 미리보기의 Subject·Issuer 는 아래 인라인 스크립트가 입력 즉시 갱신한다 (표시용 — 실제 DN 은 서버가 다시 계산).
@@ -23,13 +24,17 @@
               pid=${f.profileId?.value()},
               pickedProfile=${pid != null} ? ${profileList.^[id.value() == #vars.pid]} : null,
               sp=${pickedProfile} ?: (${#lists.isEmpty(profileList)} ? null : ${profileList[0]}),
+              isRootCa=${sp?.certificateType != null and sp.certificateType.name() == 'ROOT_CA'},
               isNewKey=${f.keyMode == null or f.keyMode.name() == 'NEW'},
               issuerList=${issuerCerts} ?: ${ {} },
-              selectedIssuerId=${f.issuerCertificateId?.id()},
-              allowed=${sp?.subjectKeyPolicy?.allowedKeys()},
+              selectedIssuerId=${isRootCa} ? null : ${f.issuerCertificateId?.id()},
+              allowedNames=${sp?.subjectKeyPolicy?.allowedKeys()?.![name()]},
               presets=${#lists.toList(keyAlgorithmPresets ?: {})},
-              newKeyAlgorithms=${allowed == null} ? ${ {}} : ${presets.?[#vars.allowed.contains(toParameters())]},
-              keyOptions=${allowed == null} ? ${ {}} : ${(kmsKeys ?: {}).?[#vars.allowed.contains(keyGenerationParameters)]}">
+              newKeyAlgorithms=${allowedNames == null} ? ${ {}} : ${presets.?[#vars.allowedNames.contains(name())]},
+              allowedParams=${newKeyAlgorithms.![toParameters()]},
+              keyOptions=${(kmsKeys ?: {}).?[#vars.allowedParams.contains(keyGenerationParameters)]},
+              typeLabel=${sp?.certificateType != null} ? ${#messages.msgOrNull('enum.CertificateType.' + sp.certificateType) ?: sp.certificateType.name()} : '—',
+              spIsCa=${sp?.certificateType != null and sp.certificateType.name() != 'END_ENTITY'}">
     <section aria-labelledby="issue-title" aria-modal="true" class="modal modal-xl" role="dialog">
         <div class="modal-head modal-head-plain">
             <h2 class="modal-title" id="issue-title">새 인증서 발급</h2>
@@ -66,7 +71,7 @@
                                         th:classappend="${#fields.hasErrors('profileId')} ? 'is-invalid'">
                                     <option th:if="${#lists.isEmpty(profileList)}" value="">ACTIVE 프로파일 없음</option>
                                     <option th:each="p : ${profileList}"
-                                            th:text="|${p.alias ?: p.id.value()} (${p.isCa() ? 'CA' : '일반 인증서'})|"
+                                            th:text="|${p.alias ?: p.id.value()} (${p.certificateType != null ? (#messages.msgOrNull('enum.CertificateType.' + p.certificateType) ?: p.certificateType.name()) : '종류 미지정'})|"
                                             th:selected="${sp != null and p.id == sp.id}"
                                             th:value="${p.id.value()}">TLS 서버 (일반 인증서)
                                     </option>
@@ -122,36 +127,40 @@
                     <section class="card">
                         <h2 class="card-title">2. 발급 CA</h2>
                         <div class="field">
-                            <label class="lbl" for="issuerCertificateId">발급 CA <span aria-hidden="true"
+                                <label class="lbl" for="issuerCertificateId">발급 CA <span aria-hidden="true" th:unless="${isRootCa}"
                                                                                      class="req">*</span></label>
-                            <select class="f" id="issuerCertificateId" name="issuerCertificateId" required
+                            <select class="f" id="issuerCertificateId" name="issuerCertificateId"
+                                    th:disabled="${isRootCa}" th:required="${!isRootCa}"
+                                    aria-describedby="issuer-hint"
                                     th:classappend="${#fields.hasErrors('issuerCertificateId')} ? 'is-invalid'">
-                                <option th:text="${#lists.isEmpty(issuerList)} ? '발급 가능한 CA 인증서 없음' : '선택하세요'" value="">
+                                <option th:text="${isRootCa} ? '자체 서명 (발급 CA 불필요)' : (${#lists.isEmpty(issuerList)} ? '발급 가능한 CA 인증서 없음' : '선택하세요')" value="">
                                     선택하세요
                                 </option>
                                 <option th:each="ca : ${issuerList}"
                                         th:with="s=${ca.subject},
-                                                 dn=${#strings.listJoin({#strings.isEmpty(s.commonName()) ? null : 'CN=' + s.commonName(),
-                                                                        #strings.isEmpty(s.organizationalUnit()) ? null : 'OU=' + s.organizationalUnit(),
+                                                 dn=${#strings.listJoin({#strings.isEmpty(s.domainComponent()) ? null : 'DC=' + s.domainComponent(),
+                                                                        #strings.isEmpty(s.commonName()) ? null : 'CN=' + s.commonName(),
+                                                                        #strings.isEmpty(s.organizationUnit()) ? null : 'OU=' + s.organizationUnit(),
                                                                         #strings.isEmpty(s.organization()) ? null : 'O=' + s.organization(),
-                                                                        #strings.isEmpty(s.locality()) ? null : 'L=' + s.locality(),
-                                                                        #strings.isEmpty(s.state()) ? null : 'ST=' + s.state(),
                                                                         #strings.isEmpty(s.country()) ? null : 'C=' + s.country()}.?[#this != null], ', ')}"
                                         th:data-dn="${dn}"
-                                        th:selected="${ca.id.id() == selectedIssuerId}"
+                                        th:selected="${!isRootCa and ca.id.id() == selectedIssuerId}"
                                         th:text="${s.commonName() ?: ca.alias ?: ca.id.id()}"
                                         th:value="${ca.id.id()}">Issuing CA — TLS
                                 </option>
                             </select>
-                            <div class="err" th:errors="*{issuerCertificateId}"
-                                 th:if="${#fields.hasErrors('issuerCertificateId')}">CA를 선택하세요.
+                            <div class="hint" id="issuer-hint" th:if="${isRootCa}">
+                                Root CA는 자신의 키로 서명하므로 발급 CA를 선택하지 않습니다.
                             </div>
-                            <div class="hint"
-                                 th:if="${!#fields.hasErrors('issuerCertificateId') and #lists.isEmpty(issuerList)}">
+                            <div class="err" th:errors="*{issuerCertificateId}"
+                                 th:if="${!isRootCa and #fields.hasErrors('issuerCertificateId')}">CA를 선택하세요.
+                            </div>
+                            <div class="hint" id="issuer-hint"
+                                 th:if="${!isRootCa and !#fields.hasErrors('issuerCertificateId') and #lists.isEmpty(issuerList)}">
                                 선택할 발급 CA 인증서가 없습니다.
                             </div>
-                            <div class="hint"
-                                 th:if="${!#fields.hasErrors('issuerCertificateId') and !#lists.isEmpty(issuerList)}">
+                            <div class="hint" id="issuer-hint"
+                                 th:if="${!isRootCa and !#fields.hasErrors('issuerCertificateId') and !#lists.isEmpty(issuerList)}">
                                 발급에 사용할 CA 인증서를 선택하세요.
                             </div>
                         </div>
@@ -174,7 +183,7 @@
                         </div>
                         <div class="err" th:errors="*{keyMode}" th:if="${#fields.hasErrors('keyMode')}">키 오류</div>
 
-                        <!--/* 새 키: CertificateIssueForm.keyAlias · keyAlgorithmPreset (EXISTING 이면 서버에서 무시) */-->
+                        <!--/* 새 키: CertificateIssueForm.keyAlias · subjectKeySpec (EXISTING 이면 서버에서 무시) */-->
                         <div class="grid-2" th:if="${isNewKey}">
                             <div class="field">
                                 <label class="lbl" for="keyAlias">키 별칭 <span aria-hidden="true"
@@ -186,15 +195,15 @@
                                 </div>
                             </div>
                             <div class="field">
-                                <label class="lbl" for="keyAlgorithmPreset">키 알고리즘 <span aria-hidden="true" class="req">*</span></label>
-                                <select class="f" th:errorclass="is-invalid" th:field="*{keyAlgorithmPreset}">
+                                <label class="lbl" for="subjectKeySpec">키 알고리즘 <span aria-hidden="true" class="req">*</span></label>
+                                <select class="f" th:errorclass="is-invalid" th:field="*{subjectKeySpec}">
                                     <option th:if="${newKeyAlgorithms.isEmpty()}" value="">허용 알고리즘 없음</option>
                                     <option th:each="a : ${newKeyAlgorithms}" th:text="${a.name()}"
                                             th:value="${a.name()}">EC P-256
                                     </option>
                                 </select>
-                                <div class="err" th:errors="*{keyAlgorithmPreset}"
-                                     th:if="${#fields.hasErrors('keyAlgorithmPreset')}">키 알고리즘 오류
+                                <div class="err" th:errors="*{subjectKeySpec}"
+                                     th:if="${#fields.hasErrors('subjectKeySpec')}">키 알고리즘 오류
                                 </div>
                             </div>
                             <div class="hint span-2">선택한 프로파일이 허용하는 알고리즘만 나와요. 발급 시 KMS에 키를 만들고 그 키로 바로 발급하며, 개인키는 KMS
@@ -229,15 +238,32 @@
                     </section>
 
                     <!-- Subject : CertificateIssueForm.subjectDn (SubjectDnForm).
-                         프로파일에 고정값이 있는 칸은 그 값으로 채우고 readonly — disabled 는 값이 전송되지 않아 쓰지 않는다. -->
+                         프로파일 dnPolicy 의 fixedValue 가 있는 칸은 그 값으로 채우고 readonly — disabled 는 값이 전송되지 않아 쓰지 않는다.
+                         DN 입력은 DC · CN · OU · O · C 다섯 필드이며 required 인 칸은 필수 표시. -->
                     <section class="card"
-                             th:with="fixedO=${#strings.isEmpty(sp?.subjectOrganization)} ? null : ${sp.subjectOrganization},
-                                      fixedOu=${#strings.isEmpty(sp?.subjectOrganizationalUnit)} ? null : ${sp.subjectOrganizationalUnit},
-                                      fixedL=${#strings.isEmpty(sp?.subjectLocality)} ? null : ${sp.subjectLocality},
-                                      fixedSt=${#strings.isEmpty(sp?.subjectState)} ? null : ${sp.subjectState},
-                                      fixedC=${#strings.isEmpty(sp?.subjectCountry)} ? null : ${sp.subjectCountry}">
+                             th:with="dn=${sp?.dnPolicy},
+                                      fixedDc=${#strings.isEmpty(dn?.domainComponent?.fixedValue)} ? null : ${dn.domainComponent.fixedValue},
+                                      fixedCn=${#strings.isEmpty(dn?.commonName?.fixedValue)} ? null : ${dn.commonName.fixedValue},
+                                      fixedO=${#strings.isEmpty(dn?.organization?.fixedValue)} ? null : ${dn.organization.fixedValue},
+                                      fixedOu=${#strings.isEmpty(dn?.organizationUnit?.fixedValue)} ? null : ${dn.organizationUnit.fixedValue},
+                                      fixedC=${#strings.isEmpty(dn?.country?.fixedValue)} ? null : ${dn.country.fixedValue},
+                                      reqDc=${dn?.domainComponent?.required == true},
+                                      reqO=${dn?.organization?.required == true},
+                                      reqOu=${dn?.organizationUnit?.required == true},
+                                      reqC=${dn?.country?.required == true}">
                         <h2 class="card-title">4. Subject</h2>
                         <div class="grid-4">
+                            <div class="field span-2">
+                                <label class="lbl" for="subjectDn.domainComponent">DC <span aria-hidden="true" class="req" th:if="${reqDc}">*</span></label>
+                                <input class="f" data-dn-part="DC" id="subjectDn.domainComponent"
+                                       name="subjectDn.domainComponent" placeholder="example" th:required="${reqDc}"
+                                       th:classappend="${#fields.hasErrors('subjectDn.domainComponent')} ? 'is-invalid'"
+                                       th:data-fixed="${fixedDc}" th:readonly="${fixedDc != null}"
+                                       th:value="${fixedDc} ?: *{subjectDn?.domainComponent}" type="text">
+                                <div class="hint" th:if="${fixedDc != null}">프로파일 고정값이에요.</div>
+                                <div class="err" th:errors="*{subjectDn.domainComponent}"
+                                     th:if="${#fields.hasErrors('subjectDn.domainComponent')}">DC 오류</div>
+                            </div>
                             <div class="field span-2">
                                 <label class="lbl" for="subjectDn.commonName">Common Name (CN) <span aria-hidden="true"
                                                                                                      class="req">*</span></label>
@@ -245,17 +271,19 @@
                                        name="subjectDn.commonName"
                                        placeholder="api.example.com" required
                                        th:classappend="${#fields.hasErrors('subjectDn.commonName')} ? 'is-invalid'"
-                                       th:value="*{subjectDn?.commonName}" type="text">
+                                       th:data-fixed="${fixedCn}" th:readonly="${fixedCn != null}"
+                                       th:value="${fixedCn} ?: *{subjectDn?.commonName}" type="text">
+                                <div class="hint" th:if="${fixedCn != null}">프로파일 고정값이에요.</div>
                                 <div class="err" th:errors="*{subjectDn.commonName}"
                                      th:if="${#fields.hasErrors('subjectDn.commonName')}">CN은
                                     필수입니다. (최대 64자)
                                 </div>
                             </div>
                             <div class="field">
-                                <label class="lbl" for="subjectDn.organization">O</label>
+                                <label class="lbl" for="subjectDn.organization">O <span aria-hidden="true" class="req" th:if="${reqO}">*</span></label>
                                 <input class="f" data-dn-part="O" id="subjectDn.organization" maxlength="64"
                                        name="subjectDn.organization"
-                                       placeholder="[조직명]"
+                                       placeholder="[조직명]" th:required="${reqO}"
                                        th:classappend="${#fields.hasErrors('subjectDn.organization')} ? 'is-invalid'"
                                        th:data-fixed="${fixedO}" th:readonly="${fixedO != null}"
                                        th:value="${fixedO} ?: *{subjectDn?.organization}" type="text">
@@ -266,10 +294,10 @@
                                 </div>
                             </div>
                             <div class="field">
-                                <label class="lbl" for="subjectDn.country">C</label>
+                                <label class="lbl" for="subjectDn.country">C <span aria-hidden="true" class="req" th:if="${reqC}">*</span></label>
                                 <!--/* 기본값 KR — th:field 는 value 를 덮어쓰므로 name/value 를 직접 둔다 */-->
                                 <input class="f" data-dn-part="C" id="subjectDn.country" maxlength="2"
-                                       name="subjectDn.country" placeholder="KR"
+                                       name="subjectDn.country" placeholder="KR" th:required="${reqC}"
                                        th:classappend="${#fields.hasErrors('subjectDn.country')} ? 'is-invalid'"
                                        th:data-fixed="${fixedC}" th:readonly="${fixedC != null}"
                                        th:value="${fixedC} ?: (*{subjectDn?.country} ?: 'KR')" type="text">
@@ -279,37 +307,17 @@
                                 </div>
                             </div>
                             <div class="field span-2">
-                                <label class="lbl" for="subjectDn.organizationalUnit">OU</label>
-                                <input class="f" data-dn-part="OU" id="subjectDn.organizationalUnit" maxlength="128"
-                                       name="subjectDn.organizationalUnit"
-                                       placeholder="[부서명]"
-                                       th:classappend="${#fields.hasErrors('subjectDn.organizationalUnit')} ? 'is-invalid'"
+                                <label class="lbl" for="subjectDn.organizationUnit">OU <span aria-hidden="true" class="req" th:if="${reqOu}">*</span></label>
+                                <input class="f" data-dn-part="OU" id="subjectDn.organizationUnit" maxlength="128"
+                                       name="subjectDn.organizationUnit"
+                                       placeholder="[부서명]" th:required="${reqOu}"
+                                       th:classappend="${#fields.hasErrors('subjectDn.organizationUnit')} ? 'is-invalid'"
                                        th:data-fixed="${fixedOu}" th:readonly="${fixedOu != null}"
-                                       th:value="${fixedOu} ?: *{subjectDn?.organizationalUnit}" type="text">
+                                       th:value="${fixedOu} ?: *{subjectDn?.organizationUnit}" type="text">
                                 <div class="hint" th:if="${fixedOu != null}">프로파일 고정값이에요.</div>
-                                <div class="err" th:errors="*{subjectDn.organizationalUnit}"
-                                     th:if="${#fields.hasErrors('subjectDn.organizationalUnit')}">OU 오류
+                                <div class="err" th:errors="*{subjectDn.organizationUnit}"
+                                     th:if="${#fields.hasErrors('subjectDn.organizationUnit')}">OU 오류
                                 </div>
-                            </div>
-                            <div class="field">
-                                <label class="lbl" for="subjectDn.locality">L</label>
-                                <input class="f" data-dn-part="L" id="subjectDn.locality" name="subjectDn.locality"
-                                       th:classappend="${#fields.hasErrors('subjectDn.locality')} ? 'is-invalid'"
-                                       th:data-fixed="${fixedL}" th:readonly="${fixedL != null}"
-                                       th:value="${fixedL} ?: *{subjectDn?.locality}" type="text">
-                                <div class="hint" th:if="${fixedL != null}">프로파일 고정값이에요.</div>
-                                <div class="err" th:errors="*{subjectDn.locality}"
-                                     th:if="${#fields.hasErrors('subjectDn.locality')}">L 오류</div>
-                            </div>
-                            <div class="field">
-                                <label class="lbl" for="subjectDn.stateOrProvince">ST</label>
-                                <input class="f" data-dn-part="ST" id="subjectDn.stateOrProvince" name="subjectDn.stateOrProvince"
-                                       th:classappend="${#fields.hasErrors('subjectDn.stateOrProvince')} ? 'is-invalid'"
-                                       th:data-fixed="${fixedSt}" th:readonly="${fixedSt != null}"
-                                       th:value="${fixedSt} ?: *{subjectDn?.stateOrProvince}" type="text">
-                                <div class="hint" th:if="${fixedSt != null}">프로파일 고정값이에요.</div>
-                                <div class="err" th:errors="*{subjectDn.stateOrProvince}"
-                                     th:if="${#fields.hasErrors('subjectDn.stateOrProvince')}">ST 오류</div>
                             </div>
                         </div>
                     </section>
@@ -319,35 +327,33 @@
                 <aside class="sticky">
                     <section class="card"
                              th:with="sdn=${f.subjectDn},
-                                      vCn=${sdn?.commonName},
-                                      vOu=${!#strings.isEmpty(sp?.subjectOrganizationalUnit)} ? ${sp.subjectOrganizationalUnit} : ${sdn?.organizationalUnit},
-                                      vO=${!#strings.isEmpty(sp?.subjectOrganization)} ? ${sp.subjectOrganization} : ${sdn?.organization},
-                                      vL=${!#strings.isEmpty(sp?.subjectLocality)} ? ${sp.subjectLocality} : ${sdn?.locality},
-                                      vSt=${!#strings.isEmpty(sp?.subjectState)} ? ${sp.subjectState} : ${sdn?.stateOrProvince},
-                                      vC=${!#strings.isEmpty(sp?.subjectCountry)} ? ${sp.subjectCountry} : (${!#strings.isEmpty(sdn?.country)} ? ${sdn.country} : 'KR'),
-                                      subjectText=${#strings.listJoin({#strings.isEmpty(vCn) ? null : 'CN=' + vCn,
+                                      dn=${sp?.dnPolicy},
+                                      vDc=${!#strings.isEmpty(dn?.domainComponent?.fixedValue)} ? ${dn.domainComponent.fixedValue} : ${sdn?.domainComponent},
+                                      vCn=${!#strings.isEmpty(dn?.commonName?.fixedValue)} ? ${dn.commonName.fixedValue} : ${sdn?.commonName},
+                                      vOu=${!#strings.isEmpty(dn?.organizationUnit?.fixedValue)} ? ${dn.organizationUnit.fixedValue} : ${sdn?.organizationUnit},
+                                      vO=${!#strings.isEmpty(dn?.organization?.fixedValue)} ? ${dn.organization.fixedValue} : ${sdn?.organization},
+                                      vC=${!#strings.isEmpty(dn?.country?.fixedValue)} ? ${dn.country.fixedValue} : (${!#strings.isEmpty(sdn?.country)} ? ${sdn.country} : 'KR'),
+                                      subjectText=${#strings.listJoin({#strings.isEmpty(vDc) ? null : 'DC=' + vDc,
+                                                                       #strings.isEmpty(vCn) ? null : 'CN=' + vCn,
                                                                        #strings.isEmpty(vOu) ? null : 'OU=' + vOu,
                                                                        #strings.isEmpty(vO) ? null : 'O=' + vO,
-                                                                       #strings.isEmpty(vL) ? null : 'L=' + vL,
-                                                                       #strings.isEmpty(vSt) ? null : 'ST=' + vSt,
                                                                        #strings.isEmpty(vC) ? null : 'C=' + vC}.?[#this != null], ', ')},
                                       selCa=${selectedIssuerId == null} ? null : ${issuerList.^[id.id() == #vars.selectedIssuerId]},
                                       caSubject=${selCa?.subject},
-                                      issuerText=${caSubject == null} ? null : ${#strings.listJoin({#strings.isEmpty(caSubject.commonName()) ? null : 'CN=' + caSubject.commonName(),
-                                                                                                  #strings.isEmpty(caSubject.organizationalUnit()) ? null : 'OU=' + caSubject.organizationalUnit(),
+                                      issuerText=${caSubject == null} ? null : ${#strings.listJoin({#strings.isEmpty(caSubject.domainComponent()) ? null : 'DC=' + caSubject.domainComponent(),
+                                                                                                  #strings.isEmpty(caSubject.commonName()) ? null : 'CN=' + caSubject.commonName(),
+                                                                                                  #strings.isEmpty(caSubject.organizationUnit()) ? null : 'OU=' + caSubject.organizationUnit(),
                                                                                                   #strings.isEmpty(caSubject.organization()) ? null : 'O=' + caSubject.organization(),
-                                                                                                  #strings.isEmpty(caSubject.locality()) ? null : 'L=' + caSubject.locality(),
-                                                                                                  #strings.isEmpty(caSubject.state()) ? null : 'ST=' + caSubject.state(),
                                                                                                   #strings.isEmpty(caSubject.country()) ? null : 'C=' + caSubject.country()}.?[#this != null], ', ')},
                                       selKey=${isNewKey or f.kmsKeyId == null} ? null : ${keyOptions.^[keyId.value() == #vars.f.kmsKeyId]},
-                                      newAlg=${f.keyAlgorithmPreset} ?: (${newKeyAlgorithms.isEmpty()} ? null : ${newKeyAlgorithms.iterator().next()}),
+                                      newAlg=${f.subjectKeySpec} ?: (${newKeyAlgorithms.isEmpty()} ? null : ${newKeyAlgorithms.iterator().next()}),
                                       newAlias=${#strings.isEmpty(f.keyAlias)} ? null : ${f.keyAlias},
                                       validity=*{validityDays} ?: ${sp?.defaultValidityDays},
                                       ekus=${sp?.extendedKeyUsages}">
                         <h2 class="card-title">발급</h2>
                         <dl class="dl" style="grid-template-columns: 72px minmax(0, 1fr)">
                             <dt>발급 방식</dt>
-                            <dd style="font-weight: 600">CA가 서명</dd>
+                            <dd style="font-weight: 600" th:text="${isRootCa} ? '자체 서명' : 'CA가 서명'">CA가 서명</dd>
                             <dt>키</dt>
                             <dd style="font-weight: 600" th:text="${isNewKey} ? '새 KMS 키 생성' : '기존 KMS 키 선택'">새 KMS 키
                                 생성
@@ -357,7 +363,7 @@
                             <div class="hint" style="font-weight: 600">발급될 인증서 (예상)</div>
                             <dl class="dl dl-preview">
                                 <dt>종류</dt>
-                                <dd class="mono" th:text="${sp != null} ? |${sp.isCa() ? 'CA' : '일반 인증서'} · ${sp.alias ?: sp.id.value()}| : '—'">일반 인증서 ·
+                                <dd class="mono" th:text="${sp != null} ? |${typeLabel} · ${sp.alias ?: sp.id.value()}| : '—'">일반 인증서 ·
                                     TLS 서버
                                 </dd>
                                 <dt>Subject</dt>
@@ -367,7 +373,7 @@
                                 </dd>
                                 <dt>Issuer</dt>
                                 <dd class="mono" data-preview="issuer"
-                                    th:text="${issuerText} ?: '(발급 CA 선택)'">
+                                    th:text="${isRootCa} ? (${#strings.isEmpty(subjectText)} ? '(CN 입력)' : ${subjectText}) : (${issuerText} ?: '(발급 CA 선택)')">
                                     (발급 CA 선택)
                                 </dd>
                                 <dt>유효기간</dt>
@@ -386,7 +392,7 @@
                                 </dd>
                                 <dt>서명</dt>
                                 <dd class="mono"
-                                    th:text="${caSubject?.commonName()} ?: '(발급 CA)'">
+                                    th:text="${isRootCa} ? '자체 서명' : (${caSubject?.commonName()} ?: '(발급 CA)')">
                                     (발급 CA)
                                 </dd>
                                 <th:block th:if="${ekus != null and !ekus.isEmpty()}">
@@ -398,7 +404,7 @@
                                 <th:block th:if="${sp != null}">
                                     <dt>Basic Constr.</dt>
                                     <dd class="mono"
-                                        th:text="${sp.isCa()} ? |CA:TRUE${sp.pathLenConstraint != null ? ', pathLen=' + sp.pathLenConstraint : ''}| : 'CA:FALSE'">
+                                        th:text="${spIsCa} ? |CA:TRUE${sp.pathLenConstraint != null ? ', pathLen=' + sp.pathLenConstraint : ''}| : 'CA:FALSE'">
                                         CA:FALSE
                                     </dd>
                                 </th:block>
@@ -409,7 +415,7 @@
                             </div>
                         </div>
                         <button class="btn btn-primary btn-lg btn-block" type="submit"
-                                th:disabled="${sp == null or #lists.isEmpty(issuerList) or (isNewKey ? newKeyAlgorithms.isEmpty() : #lists.isEmpty(keyOptions))}">인증서 발급</button>
+                                th:disabled="${sp == null or (!isRootCa and #lists.isEmpty(issuerList)) or (isNewKey ? newKeyAlgorithms.isEmpty() : #lists.isEmpty(keyOptions))}">인증서 발급</button>
                         <a class="btn btn-outline btn-md btn-block" th:href="@{/pki/certificates}">취소</a>
                     </section>
                 </aside>
@@ -436,14 +442,13 @@
                 };
                 var render = function () {
                     var values = {
+                        DC: part('DC'),
                         CN: part('CN'),
                         OU: part('OU'),
                         O: part('O'),
-                        L: part('L'),
-                        ST: part('ST'),
                         C: part('C')
                     };
-                    var subject = ['CN', 'OU', 'O', 'L', 'ST', 'C']
+                    var subject = ['DC', 'CN', 'OU', 'O', 'C']
                         .filter(function (k) {
                             return values[k];
                         })
@@ -452,7 +457,9 @@
                         })
                         .join(', ');
                     subjectOut.textContent = subject || '(CN 입력)';
-                    if (ca) {
+                    if (ca && ca.disabled) {
+                        issuerOut.textContent = subject || '(CN 입력)';
+                    } else if (ca) {
                         var option = ca.options[ca.selectedIndex];
                         issuerOut.textContent = (option && option.dataset.dn) || '(발급 CA 선택)';
                     }

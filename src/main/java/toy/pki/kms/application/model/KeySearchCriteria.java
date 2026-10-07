@@ -3,8 +3,8 @@ package toy.pki.kms.application.model;
 import java.util.Locale;
 import java.util.function.Predicate;
 
-import toy.pki.kms.domain.key.KeyAlgorithm;
-import toy.pki.kms.domain.key.ManagedKey;
+import toy.pki.kms.domain.KeyAlgorithm;
+import toy.pki.kms.domain.ManagedKey;
 
 public record KeySearchCriteria(
     KeyAlgorithm algorithm,

@@ -17,19 +17,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import toy.pki.kms.application.registry.KeyMaterialProviderRegistry;
 import toy.pki.kms.application.service.KeyManagementService;
-import toy.pki.kms.domain.key.HashAlgorithm;
-import toy.pki.kms.domain.key.ManagedKey;
-import toy.pki.kms.domain.key.generation.EcKeyGenerationParameters;
-import toy.pki.kms.domain.key.generation.Ed25519KeyGenerationParameters;
-import toy.pki.kms.domain.key.generation.Ed448KeyGenerationParameters;
-import toy.pki.kms.domain.key.generation.KeyGenerationParameters;
-import toy.pki.kms.domain.key.generation.RsaKeyGenerationParameters;
-import toy.pki.kms.domain.key.signature.EcdsaSignatureParameters;
-import toy.pki.kms.domain.key.signature.Ed25519SignatureParameters;
-import toy.pki.kms.domain.key.signature.Ed448SignatureParameters;
-import toy.pki.kms.domain.key.signature.RsaPkcs1SignatureParameters;
-import toy.pki.kms.domain.key.signature.RsaPssSignatureParameters;
-import toy.pki.kms.domain.key.signature.SignatureParameters;
+import toy.pki.kms.domain.HashAlgorithm;
+import toy.pki.kms.domain.ManagedKey;
+import toy.pki.kms.domain.generation.EcKeyGenerationParameters;
+import toy.pki.kms.domain.generation.Ed25519KeyGenerationParameters;
+import toy.pki.kms.domain.generation.Ed448KeyGenerationParameters;
+import toy.pki.kms.domain.generation.KeyGenerationParameters;
+import toy.pki.kms.domain.generation.RsaKeyGenerationParameters;
+import toy.pki.kms.domain.signature.EcdsaSignatureParameters;
+import toy.pki.kms.domain.signature.Ed25519SignatureParameters;
+import toy.pki.kms.domain.signature.Ed448SignatureParameters;
+import toy.pki.kms.domain.signature.RsaPkcs1SignatureParameters;
+import toy.pki.kms.domain.signature.RsaPssSignatureParameters;
+import toy.pki.kms.domain.signature.SignatureParameters;
 
 @SpringBootTest
 class KeyManagementServiceTest {

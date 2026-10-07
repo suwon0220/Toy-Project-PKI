@@ -8,7 +8,7 @@ import java.util.HexFormat;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 import toy.pki.kms.application.port.KeyIdGenerator;
-import toy.pki.kms.domain.key.KeyId;
+import toy.pki.kms.domain.KeyId;
 
 @Component
 @Validated

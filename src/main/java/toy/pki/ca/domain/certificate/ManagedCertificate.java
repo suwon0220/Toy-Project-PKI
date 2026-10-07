@@ -7,7 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import toy.pki.ca.domain.profile.ProfileId;
-import toy.pki.kms.domain.key.KeyId;
+import toy.pki.kms.domain.KeyId;
 
 @Data
 @RequiredArgsConstructor

@@ -12,8 +12,8 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
 import org.springframework.stereotype.Component;
-import toy.pki.kms.domain.key.signature.RsaPssSignatureParameters;
-import toy.pki.kms.domain.key.signature.SignatureParameters;
+import toy.pki.kms.domain.signature.RsaPssSignatureParameters;
+import toy.pki.kms.domain.signature.SignatureParameters;
 
 @Component
 public class RsaPssSignatureOperator extends AbstractJcaSignatureOperator {

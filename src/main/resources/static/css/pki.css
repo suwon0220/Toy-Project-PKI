@@ -1437,7 +1437,7 @@ fieldset.plain > legend {
 }
 
 /* ---------- 프로파일 ---------- */
-/* 인증서 종류가 Sub CA · Root CA일 때만 Basic Constraints 표시 (JS 없이) */
+/* 인증서 종류가 Intermediate CA · Root CA일 때만 Basic Constraints 표시 (JS 없이) */
 /* fieldset.plain 의 display: flex 보다 우선하도록 .profile-form 을 붙인다 */
 .profile-form .sub-ca-only {
     display: none;
@@ -1445,9 +1445,14 @@ fieldset.plain > legend {
     border-top: 1px solid var(--line-row);
 }
 
-.profile-form:has(input[name="certType"][value="SUB_CA"]:checked) .sub-ca-only,
-.profile-form:has(input[name="certType"][value="ROOT_CA"]:checked) .sub-ca-only {
+.profile-form:has(input[name="certificateType"][value="INTERMEDIATE_CA"]:checked) .sub-ca-only,
+.profile-form:has(input[name="certificateType"][value="ROOT_CA"]:checked) .sub-ca-only {
     display: flex;
+}
+
+/* ACTIVE 프로파일 잠금용 fieldset — 카드 사이 간격은 .modal-body 와 같게 */
+.profile-form .profile-lock {
+    gap: 14px;
 }
 
 /* 첫 프로파일 안내 */

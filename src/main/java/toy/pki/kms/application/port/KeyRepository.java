@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import toy.pki.kms.application.model.KeySearchCriteria;
-import toy.pki.kms.domain.key.KeyId;
-import toy.pki.kms.domain.key.ManagedKey;
+import toy.pki.kms.domain.KeyId;
+import toy.pki.kms.domain.ManagedKey;
 
 public interface KeyRepository {
     List<ManagedKey> findByCriteria(KeySearchCriteria criteria);
