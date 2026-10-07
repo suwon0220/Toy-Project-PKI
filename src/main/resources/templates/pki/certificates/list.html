@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <!--/*
-  인증서 관리 (메뉴 "인증서 관리"): 목록 · 검색 + 오른쪽 상세 패널 + 발급 팝업.
+  인증서 관리: 목록 · 검색 + 상세 작업 팝업 + 발급 팝업.
   GET /pki/certificates?q=&status=&profileName=&page=&size=&sort=   → pki/certificates/list
   GET /pki/certificates?mode=issue&profileId=&keyMode=&issuerCertificateId=   → 같은 뷰 + 발급 팝업
-  Model: page(Page<CertificateSummary> — content, empty, totalElements, size, totalPages, number, hasPrevious(), hasNext()),
-         totalCertificateCount(long), sortField, sortDir, filter(CertificateFilter — q, status, profileName), statuses(CertStatus[]),
-         profileNames(List<String> — 인증서에 저장된 profileName 의 DISTINCT 값. 프로파일 테이블과 무관)
-  CRL 즉시 발행은 목록이 아니라 CA 인증서 상세 패널에 있다 (pki/certificates/detail 참고).
-  선택: cert(CertificateDetail) + 상세 패널 Model(pki/certificates/detail 참고) → 오른쪽 상세 패널
+  Model: page(CertificatePage — content, empty, totalElements, size, totalPages, number, hasPrevious(), hasNext()),
+         totalCertificateCount(long), sortField, sortDir, filter(CertificateFilter — q, status, profileName), statuses(CertificateStatus[]),
+         profileNames(List<String> — 발급된 인증서의 프로파일 이름)
+  선택: cert(CertificateView), detailTab(info/download/ocsp/revoke) → 상세 작업 팝업
         certificateIssueForm(CertificateIssueForm) + 발급 Model(pki/certificates/issue 참고)   → 발급 팝업
 */-->
 <html lang="ko" th:replace="~{pki/fragments/layout :: shell('인증서 관리', ~{::main}, 'certificates')}"
@@ -21,7 +20,10 @@
         <div class="crumbs">PKI / 인증서 관리</div>
         <div class="page-title-row">
             <h1 class="page-title">인증서 관리</h1>
-            <a class="btn btn-primary btn-md" th:href="@{/pki/certificates(mode='issue', keyMode='NEW')}">+ 새 인증서 발급</a>
+            <div class="actions">
+                <a class="btn btn-outline btn-md" th:href="@{/pki/certificates(mode='crl')}">CRL 다운로드</a>
+                <a class="btn btn-primary btn-md" th:href="@{/pki/certificates(mode='issue', keyMode='NEW')}">+ 새 인증서 발급</a>
+            </div>
         </div>
     </div>
 
@@ -30,7 +32,7 @@
             <input name="sort" th:value="${sortParam}" type="hidden">
             <div class="field field-sm grow">
                 <label class="lbl" for="q">검색</label>
-                <input class="f" maxlength="128" placeholder="시리얼(hex) 또는 CN" th:field="*{q}" type="search">
+                <input class="f" maxlength="128" placeholder="시리얼(hex), CN 또는 별칭" th:field="*{q}" type="search">
             </div>
             <div class="field field-sm w-150">
                 <label class="lbl" for="status">상태</label>
@@ -52,20 +54,20 @@
         </form>
     </div>
 
-    <div class="with-panel" th:classappend="${cert == null} ? 'no-panel'">
+    <div class="with-panel no-panel">
         <section class="card card-flush">
             <div class="glist" style="--cols: minmax(0, 1fr) 140px 110px 92px" th:unless="${noCerts}">
                 <div class="glist-head">
-                    <th:block th:replace="~{pki/fragments/ui :: certSortHead('subjectCn', '주체 CN · 시리얼')}"></th:block>
+                    <th:block th:replace="~{pki/fragments/ui :: certSortHead('title', '별칭 · 시리얼')}"></th:block>
                     <th:block th:replace="~{pki/fragments/ui :: certSortHead('profileName', '프로파일')}"></th:block>
                     <th:block th:replace="~{pki/fragments/ui :: certSortHead('notAfter', '만료일')}"></th:block>
                     <th:block th:replace="~{pki/fragments/ui :: certSortHead('status', '상태')}"></th:block>
                 </div>
-                <a class="glist-row" th:classappend="${cert != null and cert.serial == c.serial} ? 'is-selected'"
+                <a class="glist-row" th:classappend="${cert != null and cert.id == c.id} ? 'is-selected'"
                    th:each="c : ${page.content}"
-                   th:href="@{/pki/certificates/{serial}(serial=${c.serial})}">
+                   th:href="@{/pki/certificates/{id}(id=${c.id.id()})}">
                     <span class="glist-cell">
-                        <span class="glist-primary ellipsis" th:text="${c.subjectCn}">api.example.com</span>
+                        <span class="glist-primary ellipsis" th:text="${c.title}" th:title="${c.title}">인증서 별칭</span>
                         <span class="glist-sub mono" th:text="|${c.serial} · ${c.issuerCn}|">1b77e04a9c3d12 · Issuing CA — TLS</span>
                     </span>
                     <span th:text="${c.profileName}">TLS 서버</span>
@@ -111,11 +113,10 @@
             </nav>
         </section>
 
-        <!-- 오른쪽 상세 패널 -->
-        <th:block th:if="${cert != null}">
-            <section th:replace="~{pki/certificates/detail :: panel}"></section>
-        </th:block>
     </div>
+
+    <div th:if="${cert != null}" th:insert="~{pki/certificates/detail :: dialog}"></div>
+    <div th:if="${crlDialog == true}" th:insert="~{pki/certificates/crl :: dialog}"></div>
 
     <!-- 발급 팝업 -->
     <th:block th:if="${certificateIssueForm != null}">

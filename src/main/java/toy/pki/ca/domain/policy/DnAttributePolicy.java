@@ -11,12 +11,10 @@ public final class DnAttributePolicy {
 //    private final String defaultValue;
 
     public DnAttributePolicy(boolean required) {
-        this.required = required;
-        this.fixedValue = null;
+        this(required, null);
     }
 
     public DnAttributePolicy(String fixedValue) {
-        this.required = false;
-        this.fixedValue = fixedValue;
+        this(false, fixedValue);
     }
 }

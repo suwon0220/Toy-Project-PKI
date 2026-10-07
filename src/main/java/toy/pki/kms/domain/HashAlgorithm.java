@@ -1,15 +1,14 @@
 package toy.pki.kms.domain;
 
-public enum HashAlgorithm {
-    SHA256,
-    SHA384,
-    SHA512;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
-    public String getAlgorithmName() {
-        return switch (this) {
-            case SHA256 -> "SHA-256";
-            case SHA384 -> "SHA-384";
-            case SHA512 -> "SHA-512";
-        };
-    }
+@Getter
+@RequiredArgsConstructor
+public enum HashAlgorithm {
+    SHA256("SHA-256"),
+    SHA384("SHA-384"),
+    SHA512("SHA-512");
+
+    private final String algorithmName;
 }

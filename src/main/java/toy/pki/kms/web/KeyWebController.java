@@ -7,13 +7,10 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,15 +29,7 @@ import toy.pki.kms.domain.KeyAlgorithm;
 import toy.pki.kms.domain.KeyId;
 import toy.pki.kms.domain.ManagedKey;
 import toy.pki.kms.domain.SignatureAlgorithm;
-import toy.pki.kms.domain.exception.ManagedKeyNotFoundException;
-import toy.pki.kms.domain.signature.EcdsaSignatureParameters;
-import toy.pki.kms.domain.signature.Ed25519SignatureParameters;
-import toy.pki.kms.domain.signature.Ed448SignatureParameters;
-import toy.pki.kms.domain.signature.RsaPkcs1SignatureParameters;
-import toy.pki.kms.domain.signature.RsaPssSignatureParameters;
-import toy.pki.kms.domain.signature.SignatureParameters;
 
-@Slf4j
 @Controller
 @RequiredArgsConstructor
 @RequestMapping("/pki/kms")
@@ -60,7 +49,10 @@ public class KeyWebController {
 
     @ModelAttribute("signatureAlgorithms")
     public SignatureAlgorithm[] signatureAlgorithms() {
-        return SignatureAlgorithm.values();
+        return new SignatureAlgorithm[] {
+            SignatureAlgorithm.RSA_PKCS1_V1_5, SignatureAlgorithm.ECDSA,
+            SignatureAlgorithm.Ed25519, SignatureAlgorithm.Ed448
+        };
     }
 
     @ModelAttribute("hashAlgorithms")
@@ -69,42 +61,27 @@ public class KeyWebController {
     }
 
     @ModelAttribute("keys")
-    public List<ManagedKey> keys(@ModelAttribute KeyQuery keyQuery, Model model) {
-        List<ManagedKey> keys = keyManagementService.search(keyQuery.toCriteria());
-        model.addAttribute("keyAlgorithmLabels", keys.stream()
-                                                     .collect(Collectors.toMap(
-                                                         ManagedKey::getKeyId,
-                                                         key -> KeyAlgorithmPreset.displayName(key.getKeyGenerationParameters()))));
-        return keys;
+    public List<ManagedKey> keys(@ModelAttribute KeyQuery keyQuery) {
+        return keyManagementService.search(keyQuery.toCriteria());
     }
 
     @GetMapping("")
-    public String keys(
-        @RequestParam(required = false) KeyId signKeyId,
-        @RequestParam(required = false) KeyId deleteKeyId,
-        @ModelAttribute KeyGenerationRequest request,
-        @ModelAttribute KeyQuery keyQuery,
-        Model model) {
+    public String keys(@ModelAttribute KeyGenerationRequest request) {
         return "pki/kms/index";
     }
 
     // 키 생성
     @PostMapping("")
     public String saveKey(
-        @Validated @ModelAttribute KeyIssueForm keyIssueForm,
+        @Validated @ModelAttribute KeyGenerationRequest keyGenerationRequest,
         BindingResult bindingResult,
-        @ModelAttribute KeyQuery keyQuery,
-        Model model,
-        RedirectAttributes redirectAttributes) throws GeneralSecurityException, IllegalArgumentException {
-        log.info("keyIssueForm: {}", keyIssueForm);
+        RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
             return "pki/kms/index";
         }
 
-        ManagedKey generated = keyManagementService.generate(
-            "in-memory",
-            KeyAlgorithmPreset.fromString(keyIssueForm.keyAlgorithm).toParameters(),
-            keyIssueForm.alias);
+        keyManagementService.generate(
+            keyGenerationRequest.keyAlgorithmPreset().name(), keyGenerationRequest.alias());
         redirectAttributes.addFlashAttribute("flashSuccess", "Key generated successfully.");
         return "redirect:/pki/kms";
     }
@@ -116,11 +93,7 @@ public class KeyWebController {
         @RequestParam(required = false) HashAlgorithm hashAlgorithm,
         @RequestParam DataEncoding encoding,
         @RequestParam String data,
-        RedirectAttributes redirectAttributes) throws GeneralSecurityException, IllegalArgumentException {
-        ManagedKey key = keyManagementService.findById(keyId).orElseThrow(
-            () -> new ManagedKeyNotFoundException(keyId)
-        );
-
+        RedirectAttributes redirectAttributes) throws GeneralSecurityException {
         byte[] bytes;
         try {
             bytes = switch (encoding) {
@@ -135,8 +108,7 @@ public class KeyWebController {
                 e);
         }
 
-        SignatureParameters signatureParameters = toSignatureParameters(signatureAlgorithm, hashAlgorithm);
-        byte[] signature = keyManagementService.sign(keyId, signatureParameters, bytes);
+        byte[] signature = keyManagementService.sign(keyId, signatureAlgorithm, hashAlgorithm, bytes);
 
         HashAlgorithm dataHashAlgorithm = switch (signatureAlgorithm) {
             case Ed25519, Ed448 -> HashAlgorithm.SHA256;
@@ -175,7 +147,6 @@ public class KeyWebController {
         @RequestParam(required = false) KeyAlgorithm keyAlgorithm,
         @RequestParam(required = false) String keyword,
         RedirectAttributes redirectAttributes) {
-        keyManagementService.findById(keyId);
         redirectAttributes.addFlashAttribute("signatureForm", signatureFormData(
             keyId, signatureAlgorithm, hashAlgorithm, encoding, data, signature));
         redirectAttributes.addAttribute("opKeyId", keyId.value());
@@ -216,11 +187,10 @@ public class KeyWebController {
                 e);
         }
 
-        SignatureParameters parameters = toSignatureParameters(signatureAlgorithm, hashAlgorithm);
-
         boolean valid = keyManagementService.verify(
             keyId,
-            parameters,
+            signatureAlgorithm,
+            hashAlgorithm,
             dataBytes,
             signatureBytes);
 
@@ -245,30 +215,6 @@ public class KeyWebController {
         return new SignatureFormData(
             keyId.value(), signatureAlgorithm.name(),
             hashAlgorithm == null ? null : hashAlgorithm.name(), encoding.name(), data, signature);
-    }
-
-    private SignatureParameters toSignatureParameters(
-        SignatureAlgorithm signatureAlgorithm,
-        HashAlgorithm hashAlgorithm) {
-        // TODO: check hashAlgorithm is not null for algorithms that require it
-        return switch (signatureAlgorithm) {
-            case DSA -> throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "DSA 서명은 지원하지 않습니다");
-
-            case RSA_PKCS1_V1_5 -> new RsaPkcs1SignatureParameters(hashAlgorithm);
-
-            case RSA_PSS -> new RsaPssSignatureParameters(
-                hashAlgorithm,
-                hashAlgorithm,
-                32);
-
-            case ECDSA -> new EcdsaSignatureParameters(hashAlgorithm);
-
-            case Ed25519 -> new Ed25519SignatureParameters();
-
-            case Ed448 -> new Ed448SignatureParameters();
-        };
     }
 
     private enum DataEncoding {

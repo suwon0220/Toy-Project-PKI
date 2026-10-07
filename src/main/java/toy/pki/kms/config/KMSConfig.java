@@ -1,26 +1,26 @@
 package toy.pki.kms.config;
 
-
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import lombok.extern.slf4j.Slf4j;
+import java.net.http.HttpClient;
+import java.time.Duration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
 
-@Slf4j
 @Configuration
 public class KMSConfig {
 
-    static private final String KEYID_DIGEST_ALGORITHM = "SHA-256";
-
     @Bean
-    public MessageDigest keyIdMessageDigest() {
-        try {
-            return MessageDigest.getInstance(KEYID_DIGEST_ALGORITHM);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(
-                KEYID_DIGEST_ALGORITHM + " algorithm is not available in the environment.", e
-            );
-        }
+    public RestClient kmsRestClient(
+        @Value("${kms.base-url}") String baseUrl,
+        @Value("${kms.connect-timeout}") Duration connectTimeout,
+        @Value("${kms.read-timeout}") Duration readTimeout) {
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
+        factory.setReadTimeout(readTimeout);
+        return RestClient.builder().baseUrl(baseUrl).requestFactory(factory)
+            .defaultHeader("Accept", MediaType.APPLICATION_JSON_VALUE).build();
     }
 }

@@ -2,8 +2,8 @@
 <!--/*
   GET /pki/kms?keyAlgorithm=&keyword= → 별칭 또는 키 ID 검색
   GET /pki/kms?opKeyId=&op=sign|verify|info|delete → 키 팝업
-  POST /pki/kms → 키 생성 (providerId, keyAlgorithmPreset, alias)
-  Model: keys, keyAlgorithmLabels, keyQuery, algorithms, keyAlgorithmPresets, signatureAlgorithms, hashAlgorithms,
+  POST /pki/kms → 키 생성 (keyAlgorithmPreset, alias)
+  Model: keys, keyQuery, algorithms, keyAlgorithmPresets, signatureAlgorithms, hashAlgorithms,
          keyGenerationRequest
   선택(없어도 됨): signResult, verifyResult — 서명 · 검증 요청 처리 후 같은 뷰로 돌려줄 때
   signatureForm — 해당 키의 원본 데이터, 서명값, 알고리즘, 해시, 입력 형식을 복원한다.
@@ -89,7 +89,7 @@
         </div>
         <div
                 class="glist"
-                style="--cols: minmax(0, 1fr) minmax(0, 1.4fr) 120px 130px 190px; --list-min-width: 880px"
+                style="--cols: minmax(0, 1fr) minmax(0, 1.4fr) 120px 190px; --list-min-width: 880px"
                 th:unless="${#lists.isEmpty(keyList)}"
         >
             <div class="glist-head">
@@ -102,9 +102,6 @@
                 <button class="sort" data-sort-key="algorithm" type="button">
                     알고리즘<span aria-hidden="true" class="arrow">↕</span>
                 </button>
-                <button class="sort" data-sort-key="provider" type="button">
-                    Provider<span aria-hidden="true" class="arrow">↕</span>
-                </button>
                 <button class="sort" data-sort-key="createdAt" data-sort-type="number" type="button">
                     생성일<span aria-hidden="true" class="arrow">↕</span>
                 </button>
@@ -113,16 +110,15 @@
                 <a
                         class="glist-row"
                         th:aria-label="|${alias != null ? alias : kid} 키 열기|"
-                        th:attr="data-k-alias=${alias} ?: '', data-k-provider=${providerName}, data-k-key-id=${kid}, data-k-algorithm=${algLabel},
+                        th:attr="data-k-alias=${alias} ?: '', data-k-key-id=${kid}, data-k-algorithm=${algLabel},
                             data-k-created-at=${k.createdAt.toEpochMilli()},
-                            data-search=${(alias != null ? alias : '') + ' ' + providerName + ' ' + kid}"
+                            data-search=${(alias != null ? alias : '') + ' ' + kid}"
                         th:classappend="${kid == opKeyId} ? (${opMode == 'delete'} ? 'is-danger' : 'is-selected')"
                         th:each="k : ${keyList}"
                         th:href="@{/pki/kms(opKeyId=${kid}, op='sign', keyAlgorithm=${qAlgorithm}, keyword=${qKeyword})}"
                         th:with="kid=${k.keyId.value()},
-                            providerName=${k.keyProviderId.value()},
                             alias=${k.alias},
-                            algLabel=${keyAlgorithmLabels[k.keyId]}"
+                            algLabel=${k.keyAlgorithmPreset}"
                 >
               <span
                       class="glist-primary"
@@ -137,9 +133,6 @@
               >
                     <code class="glist-mono glist-key-id" th:text="${#strings.abbreviate(kid, 24)}" th:title="${kid}">SHA-256:…</code>
                     <code class="glist-mono" th:text="${algLabel}">EC P384</code>
-                    <span class="glist-mono" th:text="${providerName}"
-                    >in-memory</span
-                    >
                     <span
                             class="glist-mono"
                             th:text="${#temporals.format(k.createdAt, 'yyyy-MM-dd HH:mm:ss.SSS', 'Asia/Seoul')}"
@@ -197,11 +190,6 @@
                 </li>
             </ul>
         </div>
-        <input
-                name="providerId"
-                th:value="${keyGenerationRequest?.providerId()} ?: 'in-memory'"
-                type="hidden"
-        />
         <div class="gen-row">
             <div class="field field-sm">
                 <label class="lbl" for="alias-new">별칭 (선택)</label>
@@ -245,7 +233,7 @@
             th:with="okid=${opKey.keyId.value()},
                   oForm=${signatureForm != null and signatureForm.keyId == okid} ? ${signatureForm} : null,
                   oAlg=${opKey.keyAlgorithm},
-                  oAlgorithmLabel=${keyAlgorithmLabels[opKey.keyId]},
+                  oAlgorithmLabel=${opKey.keyAlgorithmPreset},
                   oSig=${oForm?.signatureAlgorithm} ?: ${defaultSig[oAlg.name()]},
                   oEdDsa=${oAlg.name() == 'Ed25519' or oAlg.name() == 'Ed448'},
                   oHash=${oForm != null and oForm.hashAlgorithm != null ? oForm.hashAlgorithm : (oAlgorithmLabel == 'EC_P384' ? 'SHA384' : (oAlgorithmLabel == 'EC_P521' ? 'SHA512' : 'SHA256'))},
@@ -318,7 +306,7 @@
                         >
                             <option
                                     th:each="sa : ${signatureAlgorithms}"
-                                    th:if="${(oAlg.name() == 'RSA' and {'RSA_PKCS1_V1_5', 'RSA_PSS'}.contains(sa.name()))
+                                    th:if="${(oAlg.name() == 'RSA' and sa.name() == 'RSA_PKCS1_V1_5')
                                              or (oAlg.name() == 'EC' and sa.name() == 'ECDSA')
                                              or sa.name() == oAlg.name()}"
                                     th:selected="${sa.name() == oSig}"
@@ -355,7 +343,7 @@
                         </select>
                         <div
                                 class="hint"
-                                th:text="${oEdDsa} ? 'EdDSA는 해시 고정' : (${oAlg.name() == 'EC'} ? '기본: 곡선 크기에 맞춤' : 'PSS면 MGF1도 같은 해시')"
+                                th:text="${oEdDsa} ? 'EdDSA는 해시 고정' : (${oAlg.name() == 'EC'} ? '기본: 곡선 크기에 맞춤' : '서명에 사용할 해시')"
                         >
                             기본: 곡선 크기에 맞춤
                         </div>
@@ -494,8 +482,6 @@
                     <dd th:text="${opKey.alias} ?: '—'">tls-issuing-ca</dd>
                     <dt>알고리즘</dt>
                     <dd th:text="${oAlgorithmLabel}">EC_P256</dd>
-                    <dt>Provider</dt>
-                    <dd th:text="${opKey.keyProviderId.value()}">in-memory</dd>
                     <dt>기본 서명 알고리즘</dt>
                     <dd class="mono" th:text="${oSig}">SHA384withECDSA</dd>
                     <dt>생성일</dt>

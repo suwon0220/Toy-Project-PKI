@@ -6,9 +6,8 @@
   생성·편집·복제 화면은 CreateProfileForm의 입력 필드를 공유한다.
   - certificateType: ROOT_CA · INTERMEDIATE_CA · END_ENTITY (CA 두 종류일 때만 Basic Constraints 표시, pki.css).
   - keyAlgorithms: SubjectKeySpec, allowedSignatures: CertificateSignatureAlgorithm (UNKNOWN 제외).
-  - dnPolicy: DC · CN · O · OU · C 마다 required · fixedValue (DnAttribute).
-    record 라 th:field · #fields.hasErrors('dnPolicy.x') 가 중첩 경로를 자동 생성하려다 실패하므로
-    name/value 를 직접 두고 오류는 dnPolicy 단위로만 표시한다.
+  - dnPolicy: DC · CN · O · OU · C 마다 required · fixedValue (DnPolicyForm.AttributeForm).
+    폼에 바인딩한 값을 저장할 때 도메인 정책으로 변환한다.
   검색 · 종류 · 상태 필터와 표 정렬은 pki.js 가 화면에서 처리한다 (컨트롤러 파라미터 없음).
 */-->
 <html lang="ko" th:replace="~{pki/fragments/layout :: shell('인증서 프로파일', ~{::main}, 'profiles')}"
@@ -155,7 +154,7 @@
     <section class="card">
         <div class="card-head">
             <h2 class="card-title"
-                th:text="${isEdit} ? (${form.alias} ?: '프로파일') : (${isCopy} ? |새 프로파일 — ${form.alias} 복제| : '새 프로파일')">
+                th:text="${isEdit} ? (${form.alias} ?: '프로파일') : (${isCopy} ? |새 프로파일 — ${selectedProfile.alias} 복제| : '새 프로파일')">
                 새 프로파일</h2>
             <th:block th:if="${isEdit and status != null}">
                 <span th:replace="~{pki/fragments/ui :: profileStatus(${status})}">ACTIVE</span>

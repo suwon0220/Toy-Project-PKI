@@ -16,7 +16,6 @@ import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.ExtendedKeyUsageOid;
 import toy.pki.ca.domain.profile.KeyUsage;
 import toy.pki.ca.domain.profile.SanType;
-import toy.pki.ca.domain.policy.DnPolicy;
 import toy.pki.ca.domain.profile.SubjectKeySpec;
 
 @Data
@@ -40,7 +39,7 @@ public class CreateProfileForm {
     private boolean sanRequired;
     private Set<SanType> allowedSanTypes;
 
-    private DnPolicy dnPolicy;
+    private DnPolicyForm dnPolicy;
 
     private CertificateType certificateType;
     private Integer pathLenConstraint;
@@ -61,7 +60,7 @@ public class CreateProfileForm {
             new LinkedHashSet<>(profile.getAllowedSignatures()),
             profile.getSanPolicy().required(),
             new LinkedHashSet<>(profile.getSanPolicy().allowedTypes()),
-            profile.getDnPolicy(),
+            DnPolicyForm.from(profile.getDnPolicy()),
             profile.getCertificateType(),
             profile.getPathLenConstraint(),
             new LinkedHashSet<>(profile.getKeyUsages()),

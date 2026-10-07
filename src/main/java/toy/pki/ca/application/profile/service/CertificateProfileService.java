@@ -2,7 +2,6 @@ package toy.pki.ca.application.profile.service;
 
 import java.util.List;
 import java.util.UUID;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -14,7 +13,6 @@ import toy.pki.ca.domain.profile.ProfileId;
 import toy.pki.ca.domain.profile.ProfileStatus;
 
 @Slf4j
-@Data
 @Service
 @RequiredArgsConstructor
 public class CertificateProfileService {
@@ -41,7 +39,7 @@ public class CertificateProfileService {
 
     public CertificateProfile findById(String profileId) {
         return repository.findById(new ProfileId(profileId))
-                         .orElseThrow(() -> new IllegalArgumentException("Profile not found: " + profileId));
+            .orElseThrow(() -> new IllegalArgumentException("Profile not found: " + profileId));
     }
 
     public List<CertificateProfile> findAll() {

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -22,7 +23,9 @@ public class CertificateProfile {
     @NotNull
     @Valid
     private final ProfileId id;
+    @Size(min = 1, message = "alias는 null이 아닐 경우 비어있을 수 없습니다")
     private String alias;
+    @Size(min = 1, message = "description은 null이 아닐 경우 비어있을 수 없습니다")
     private String description;
     // Status of the certificate profile
     @NotNull private ProfileStatus status = ProfileStatus.DRAFT;
@@ -44,16 +47,6 @@ public class CertificateProfile {
     // Key Usage
     @NotEmpty private Set<@NotNull KeyUsage> keyUsages;
     @NotNull private Set<@NotNull @Valid ExtendedKeyUsageOid> extendedKeyUsages;
-
-    @AssertTrue(message = "alias는 null이 아닐 경우 비어있을 수 없습니다")
-    public boolean isValidAlias() {
-        return alias == null || !alias.isEmpty();
-    }
-
-    @AssertTrue(message = "description은 null이 아닐 경우 비어있을 수 없습니다")
-    public boolean isValidDescription() {
-        return description == null || !description.isEmpty();
-    }
 
     @AssertTrue(message = "defaultValidityDays는 maxValidityDays보다 작거나 같아야 합니다")
     public boolean isValidValidityRange() {
@@ -104,19 +97,9 @@ public class CertificateProfile {
         Integer pathLenConstraint,
         Set<KeyUsage> keyUsages,
         Set<ExtendedKeyUsageOid> extendedKeyUsages) {
-        this.id = id;
-        this.alias = alias;
-        this.description = description;
-        this.defaultValidityDays = defaultValidityDays;
-        this.maxValidityDays = maxValidityDays;
-        this.subjectKeyPolicy = subjectKeyPolicy;
-        this.allowedSignatures = allowedSignatures;
-        this.sanPolicy = sanPolicy;
-        this.dnPolicy = dnPolicy;
-        this.certificateType = certificateType;
-        this.pathLenConstraint = pathLenConstraint;
-        this.keyUsages = keyUsages;
-        this.extendedKeyUsages = extendedKeyUsages;
+        this(id, alias, description, ProfileStatus.DRAFT, defaultValidityDays, maxValidityDays,
+            subjectKeyPolicy, allowedSignatures, sanPolicy, dnPolicy, certificateType, pathLenConstraint,
+            keyUsages, extendedKeyUsages);
     }
 
     public void activate() {

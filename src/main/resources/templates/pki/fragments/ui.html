@@ -23,7 +23,7 @@
 
 <!--/* 인증서 상태 배지: VALID | ON_HOLD | REVOKED | EXPIRED */-->
 <span class="badge"
-      th:classappend="${status == null} ? 'b-neutral' : (${status.name() == 'VALID'} ? 'b-ok' : (${status.name() == 'ON_HOLD'} ? 'b-warn' : (${status.name() == 'REVOKED'} ? 'b-danger' : 'b-neutral')))"
+      th:classappend="${status == null} ? 'b-neutral' : (${(status.name() == 'VALID' or status.name() == 'ACTIVE')} ? 'b-ok' : (${(status.name() == 'ON_HOLD' or status.name() == 'SUSPENDED')} ? 'b-warn' : (${status.name() == 'REVOKED'} ? 'b-danger' : 'b-neutral')))"
       th:fragment="certStatus(status)"
       th:insert="~{pki/fragments/ui :: label('CertStatus', ${status})}">유효</span>
 

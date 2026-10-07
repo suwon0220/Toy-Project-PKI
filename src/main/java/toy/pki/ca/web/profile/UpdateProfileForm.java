@@ -10,7 +10,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import toy.pki.ca.domain.policy.DnPolicy;
 import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.CertificateType;
 import toy.pki.ca.domain.profile.ExtendedKeyUsageOid;
@@ -39,7 +38,7 @@ public class UpdateProfileForm {
     private Set<SanType> allowedSanTypes;
 
     // Subject Policy
-    private DnPolicy dnPolicy;
+    private DnPolicyForm dnPolicy;
 
     private CertificateType certificateType;
     private Integer pathLenConstraint;
@@ -59,7 +58,7 @@ public class UpdateProfileForm {
                   .collect(Collectors.toCollection(LinkedHashSet::new)),
             profile.getSanPolicy().required(),
             new LinkedHashSet<>(profile.getSanPolicy().allowedTypes()),
-            profile.getDnPolicy(),
+            DnPolicyForm.from(profile.getDnPolicy()),
             profile.getCertificateType(),
             profile.getPathLenConstraint(),
             new LinkedHashSet<>(profile.getKeyUsages()),

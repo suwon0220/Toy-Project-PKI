@@ -40,7 +40,7 @@ public class ProfileDataInitializer {
                 new SanPolicy(false, Set.of()),
                 new DnPolicy(
                     new DnAttributePolicy("V2G"), // Domain Component (DC)
-                    new DnAttributePolicy(true),  // Common Name (CN)
+                    new DnAttributePolicy(true), // Common Name (CN)
                     new DnAttributePolicy(false), // Organizational Unit (OU)
                     new DnAttributePolicy(true), // Organization (O)
                     new DnAttributePolicy(false) // Country (C)
@@ -48,16 +48,14 @@ public class ProfileDataInitializer {
                 CertificateType.ROOT_CA,
                 null,
                 Set.of(KeyUsage.KEY_CERT_SIGN, KeyUsage.CRL_SIGN),
-                Set.of()
-            )
-        );
+                Set.of()));
 
         // CPO Sub CA 1 Profile
         certificateProfileRepository.save(
             new CertificateProfile(
                 new ProfileId(UUID.randomUUID().toString()),
                 "CPO Sub CA 1",
-                "This is the ISO 15118 V2G Root CA profile.",
+                "This is the ISO 15118 CPO Sub CA 1 profile.",
                 ProfileStatus.ACTIVE,
                 1460, // 4 years
                 1460, // 4 years
@@ -65,17 +63,63 @@ public class ProfileDataInitializer {
                 Set.of(CertificateSignatureAlgorithm.ECDSA_WITH_SHA256),
                 new SanPolicy(false, Set.of()),
                 new DnPolicy(
-                    new DnAttributePolicy("V2G"), // Domain Component (DC)
-                    new DnAttributePolicy(true),  // Common Name (CN)
+                    new DnAttributePolicy(false), // Domain Component (DC)
+                    new DnAttributePolicy(true), // Common Name (CN)
                     new DnAttributePolicy(false), // Organizational Unit (OU)
                     new DnAttributePolicy(true), // Organization (O)
                     new DnAttributePolicy(false) // Country (C)
                 ),
                 CertificateType.INTERMEDIATE_CA,
-                null,
+                1,
                 Set.of(KeyUsage.KEY_CERT_SIGN, KeyUsage.CRL_SIGN),
-                Set.of()
-            )
-        );
+                Set.of()));
+
+        // CPO Sub CA 2 Profile
+        certificateProfileRepository.save(
+            new CertificateProfile(
+                new ProfileId(UUID.randomUUID().toString()),
+                "CPO Sub CA 2",
+                "This is the ISO 15118 CPO Sub CA 2 profile.",
+                ProfileStatus.ACTIVE,
+                730, // 2 years
+                730, // 2 years
+                new SubjectKeyPolicy(Set.of(SubjectKeySpec.EC_P256)),
+                Set.of(CertificateSignatureAlgorithm.ECDSA_WITH_SHA256),
+                new SanPolicy(false, Set.of()),
+                new DnPolicy(
+                    new DnAttributePolicy(false), // Domain Component (DC)
+                    new DnAttributePolicy(true), // Common Name (CN)
+                    new DnAttributePolicy(false), // Organizational Unit (OU)
+                    new DnAttributePolicy(true), // Organization (O)
+                    new DnAttributePolicy(false) // Country (C)
+                ),
+                CertificateType.INTERMEDIATE_CA,
+                0,
+                Set.of(KeyUsage.KEY_CERT_SIGN, KeyUsage.CRL_SIGN),
+                Set.of()));
+
+        // SECC Cert Profile
+        certificateProfileRepository.save(
+            new CertificateProfile(
+                new ProfileId(UUID.randomUUID().toString()),
+                "SECC Cert",
+                "This is the ISO 15118 SECC Cert profile.",
+                ProfileStatus.ACTIVE,
+                90, // 3 months
+                90, // 3 months
+                new SubjectKeyPolicy(Set.of(SubjectKeySpec.EC_P256)),
+                Set.of(CertificateSignatureAlgorithm.ECDSA_WITH_SHA256),
+                new SanPolicy(false, Set.of()),
+                new DnPolicy(
+                    new DnAttributePolicy("CPO"), // Domain Component (DC)
+                    new DnAttributePolicy(true), // Common Name (CN)
+                    new DnAttributePolicy(false), // Organizational Unit (OU)
+                    new DnAttributePolicy(true), // Organization (O)
+                    new DnAttributePolicy(false) // Country (C)
+                ),
+                CertificateType.END_ENTITY,
+                null,
+                Set.of(KeyUsage.DATA_ENCIPHERMENT),
+                Set.of()));
     }
 }
