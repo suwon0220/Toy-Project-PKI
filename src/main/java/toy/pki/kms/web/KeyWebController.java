@@ -49,7 +49,7 @@ public class KeyWebController {
 
     @ModelAttribute("signatureAlgorithms")
     public SignatureAlgorithm[] signatureAlgorithms() {
-        return new SignatureAlgorithm[] {
+        return new SignatureAlgorithm[]{
             SignatureAlgorithm.RSA_PKCS1_V1_5, SignatureAlgorithm.ECDSA,
             SignatureAlgorithm.Ed25519, SignatureAlgorithm.Ed448
         };

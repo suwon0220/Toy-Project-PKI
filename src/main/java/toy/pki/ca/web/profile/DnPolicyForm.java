@@ -44,7 +44,7 @@ public class DnPolicyForm {
 
         private static AttributeForm from(DnAttributePolicy policy) {
             return policy == null ? new AttributeForm()
-                : new AttributeForm(policy.isRequired(), policy.getFixedValue());
+                                  : new AttributeForm(policy.required(), policy.fixedValue());
         }
 
         private DnAttributePolicy toPolicy() {

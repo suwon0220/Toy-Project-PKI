@@ -102,13 +102,13 @@ class KeyManagementServiceTest {
         when(client.verify(keyId, SignatureAlgorithm.ECDSA, HashAlgorithm.SHA384, data, signature)).thenReturn(true);
         assertThat(service.sign(keyId, SignatureAlgorithm.ECDSA, HashAlgorithm.SHA384, data)).isEqualTo(signature);
         assertThat(service.verify(keyId, SignatureAlgorithm.ECDSA, HashAlgorithm.SHA384, data, signature)).isTrue();
-        assertThat(service.verify(keyId, SignatureAlgorithm.ECDSA, HashAlgorithm.SHA384, data, new byte[] {8})).isFalse();
+        assertThat(service.verify(keyId, SignatureAlgorithm.ECDSA, HashAlgorithm.SHA384, data, new byte[]{8})).isFalse();
     }
 
     @Test
     void allowsEdDsaWithoutDigestButRejectsMissingRequiredInputs() {
         byte[] data = {1};
-        when(client.sign(keyId, SignatureAlgorithm.Ed25519, null, data)).thenReturn(new byte[] {2});
+        when(client.sign(keyId, SignatureAlgorithm.Ed25519, null, data)).thenReturn(new byte[]{2});
         assertThat(service.sign(keyId, SignatureAlgorithm.Ed25519, null, data)).containsExactly(2);
         assertThatThrownBy(() -> service.sign(null, SignatureAlgorithm.Ed25519, null, data))
             .isInstanceOf(ConstraintViolationException.class);
@@ -121,7 +121,7 @@ class KeyManagementServiceTest {
 
     @Test
     void returnsPublicKeyAndDeletionResultFromKms() {
-        when(client.getPublicKeyOf(keyId)).thenReturn(new byte[] {0, 1, (byte) 255});
+        when(client.getPublicKeyOf(keyId)).thenReturn(new byte[]{0, 1, (byte) 255});
         when(client.delete(keyId)).thenReturn(keyId);
         assertThat(service.getPublicKeyOf(keyId)).containsExactly(0, 1, (byte) 255);
         assertThat(service.delete(keyId)).isEqualTo(keyId);

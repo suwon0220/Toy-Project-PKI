@@ -6,6 +6,6 @@ public record DnPolicy(
     DnAttributePolicy organizationUnit,
     DnAttributePolicy organization,
     DnAttributePolicy country
-){
+) {
 
 }

@@ -21,6 +21,6 @@ public class KMSConfig {
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
         factory.setReadTimeout(readTimeout);
         return RestClient.builder().baseUrl(baseUrl).requestFactory(factory)
-            .defaultHeader("Accept", MediaType.APPLICATION_JSON_VALUE).build();
+                         .defaultHeader("Accept", MediaType.APPLICATION_JSON_VALUE).build();
     }
 }

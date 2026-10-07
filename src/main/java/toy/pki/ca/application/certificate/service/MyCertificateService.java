@@ -32,7 +32,8 @@ public class MyCertificateService {
         return issue(request, CertificateSerialNumber.generate());
     }
 
-    public CertificateId issue(IssueCertificateCommand request, CertificateSerialNumber serial) throws GeneralSecurityException, IOException {
+    public CertificateId issue(IssueCertificateCommand request, CertificateSerialNumber serial)
+        throws GeneralSecurityException, IOException {
         CertificateProfile profile = profileService.findById(request.profileId().value());
         MyCertificate issuer = null;
         if (profile.getCertificateType() != CertificateType.ROOT_CA) {
@@ -49,7 +50,8 @@ public class MyCertificateService {
         certificate.setIssuerCertificateId(issuer == null ? null : issuer.getId());
         certificateRepository.save(certificate);
         log.info("Certificate issued: certificateId={}, profileId={}, subjectKeyId={}, issuerCertificateId={}",
-            certificate.getId().id(), profile.getId().value(), request.subjectKeyId().value(), certificate.getIssuerCertificateId());
+            certificate.getId().id(), profile.getId().value(), request.subjectKeyId()
+                                                                      .value(), certificate.getIssuerCertificateId());
         return certificate.getId();
     }
 
@@ -66,7 +68,7 @@ public class MyCertificateService {
 
     public MyCertificate findById(String certificateId) {
         return certificateRepository.findById(new CertificateId(certificateId))
-            .orElseThrow(() -> new IllegalArgumentException("Certificate not found: " + certificateId));
+                                    .orElseThrow(() -> new IllegalArgumentException("Certificate not found: " + certificateId));
     }
 
     public List<MyCertificate> findAll() {

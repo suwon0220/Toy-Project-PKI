@@ -3,8 +3,8 @@ package toy.pki.web.error;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -17,7 +17,7 @@ import org.springframework.web.client.RestClientResponseException;
 @Slf4j
 @Order(0)
 @RequiredArgsConstructor
-@ControllerAdvice(basePackages = { "toy.pki.kms.web", "toy.pki.ca.web.certificate" })
+@ControllerAdvice(basePackages = {"toy.pki.kms.web", "toy.pki.ca.web.certificate"})
 public class KmsExceptionHandler {
 
     private final MessageSource messageSource;

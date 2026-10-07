@@ -41,11 +41,11 @@ public class InMemoryMyCertificateRepository implements MyCertificateRepository 
     public List<MyCertificate> findByCriteria(CertificateSearchCriteria criteria) {
         String keyword = criteria.keyword();
         return store.values().stream()
-            .filter(certificate -> keyword == null
-                || contains(certificate.getId().id(), keyword)
-                || contains(certificate.getAlias(), keyword)
-                || contains(certificate.getDescription(), keyword))
-            .toList();
+                    .filter(certificate -> keyword == null
+                        || contains(certificate.getId().id(), keyword)
+                        || contains(certificate.getAlias(), keyword)
+                        || contains(certificate.getDescription(), keyword))
+                    .toList();
     }
 
     private boolean contains(String value, String keyword) {

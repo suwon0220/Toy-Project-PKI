@@ -7,15 +7,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import toy.pki.ca.application.profile.port.CertificateProfileRepository;
 import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
+import toy.pki.ca.domain.policy.DnAttributePolicy;
+import toy.pki.ca.domain.policy.DnPolicy;
+import toy.pki.ca.domain.policy.SanPolicy;
+import toy.pki.ca.domain.policy.SubjectKeyPolicy;
 import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.CertificateType;
-import toy.pki.ca.domain.policy.DnAttributePolicy;
 import toy.pki.ca.domain.profile.KeyUsage;
 import toy.pki.ca.domain.profile.ProfileId;
 import toy.pki.ca.domain.profile.ProfileStatus;
-import toy.pki.ca.domain.policy.SanPolicy;
-import toy.pki.ca.domain.policy.DnPolicy;
-import toy.pki.ca.domain.policy.SubjectKeyPolicy;
 import toy.pki.ca.domain.profile.SubjectKeySpec;
 
 @Component

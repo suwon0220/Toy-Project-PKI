@@ -6,6 +6,6 @@ public enum SignatureAlgorithm {
     RSA_PSS,
     ECDSA,
     Ed448,
-    Ed25519;
+    Ed25519
 
 }

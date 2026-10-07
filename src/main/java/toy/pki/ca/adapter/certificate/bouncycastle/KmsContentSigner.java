@@ -5,8 +5,8 @@ import java.security.PublicKey;
 import java.security.interfaces.ECPublicKey;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
@@ -30,8 +30,8 @@ final class KmsContentSigner implements ContentSigner {
             case "1.2.840.10045.2.1" -> {
                 int bits = ((ECPublicKey) key).getParams().getCurve().getField().getFieldSize();
                 yield bits <= 256 ? CertificateSignatureAlgorithm.ECDSA_WITH_SHA256
-                    : bits <= 384 ? CertificateSignatureAlgorithm.ECDSA_WITH_SHA384
-                        : CertificateSignatureAlgorithm.ECDSA_WITH_SHA512;
+                                  : bits <= 384 ? CertificateSignatureAlgorithm.ECDSA_WITH_SHA384
+                                                : CertificateSignatureAlgorithm.ECDSA_WITH_SHA512;
             }
             case "1.3.101.112" -> CertificateSignatureAlgorithm.ED25519;
             case "1.3.101.113" -> CertificateSignatureAlgorithm.ED448;

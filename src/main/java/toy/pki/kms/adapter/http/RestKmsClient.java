@@ -29,9 +29,9 @@ public class RestKmsClient {
     public List<ManagedKey> findAll() {
         log.debug("Requesting KMS key list");
         KeyData[] keys = client.get()
-            .uri(API)
-            .retrieve()
-            .body(KeyData[].class);
+                               .uri(API)
+                               .retrieve()
+                               .body(KeyData[].class);
 
         required(keys);
         log.debug("KMS key list retrieved: count={}", keys.length);
@@ -41,11 +41,11 @@ public class RestKmsClient {
     public ManagedKey generate(KeyAlgorithmPreset preset, String alias) {
         log.debug("Requesting KMS key generation: algorithm={}", preset);
         KeyData key = client.post()
-            .uri(API + "/generate")
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(new GenerateRequest(alias, preset.name()))
-            .retrieve()
-            .body(KeyData.class);
+                            .uri(API + "/generate")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(new GenerateRequest(alias, preset.name()))
+                            .retrieve()
+                            .body(KeyData.class);
 
         ManagedKey managedKey = required(key).toManagedKey();
         log.info("KMS key generated: keyId={}, algorithm={}", managedKey.getKeyId().value(), preset);
@@ -57,11 +57,11 @@ public class RestKmsClient {
         log.debug("Requesting KMS signature: keyId={}, algorithm={}, digest={}, dataLength={}",
             keyId.value(), algorithm, digest, data.length);
         SignResponse response = client.post()
-            .uri(API + "/sign")
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(new SignRequest(keyId, algorithm, digest, data))
-            .retrieve()
-            .body(SignResponse.class);
+                                      .uri(API + "/sign")
+                                      .contentType(MediaType.APPLICATION_JSON)
+                                      .body(new SignRequest(keyId, algorithm, digest, data))
+                                      .retrieve()
+                                      .body(SignResponse.class);
 
         required(response);
         byte[] signature = required(response.signature());
@@ -69,16 +69,21 @@ public class RestKmsClient {
         return signature;
     }
 
-    public boolean verify(KeyId keyId, SignatureAlgorithm algorithm, HashAlgorithm digest, byte[] data, byte[] signature) {
+    public boolean verify(
+        KeyId keyId,
+        SignatureAlgorithm algorithm,
+        HashAlgorithm digest,
+        byte[] data,
+        byte[] signature) {
         digest = digest(algorithm, digest);
         log.debug("Requesting KMS verification: keyId={}, algorithm={}, digest={}",
             keyId.value(), algorithm, digest);
         VerifyResponse response = client.post()
-            .uri(API + "/verify")
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(new VerifyRequest(keyId, algorithm, digest, data, signature))
-            .retrieve()
-            .body(VerifyResponse.class);
+                                        .uri(API + "/verify")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .body(new VerifyRequest(keyId, algorithm, digest, data, signature))
+                                        .retrieve()
+                                        .body(VerifyResponse.class);
 
         required(response);
         boolean valid = required(response.verify_result());
@@ -90,11 +95,11 @@ public class RestKmsClient {
         log.debug("Requesting KMS public key: keyId={}", keyId.value());
         // Toy-Project-KMS requires JSON in the body of this GET request.
         PublicKeyResponse response = client.method(HttpMethod.GET)
-            .uri(API + "/pub")
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(new PublicKeyRequest(keyId))
-            .retrieve()
-            .body(PublicKeyResponse.class);
+                                           .uri(API + "/pub")
+                                           .contentType(MediaType.APPLICATION_JSON)
+                                           .body(new PublicKeyRequest(keyId))
+                                           .retrieve()
+                                           .body(PublicKeyResponse.class);
 
         required(response);
         if (!keyId.equals(response.keyId())) {
@@ -108,11 +113,11 @@ public class RestKmsClient {
     public KeyId delete(KeyId keyId) {
         log.debug("Requesting KMS key deletion: keyId={}", keyId.value());
         KeyId[] deleted = client.post()
-            .uri(API + "/delete")
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(new KeyId[] { keyId })
-            .retrieve()
-            .body(KeyId[].class);
+                                .uri(API + "/delete")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body(new KeyId[]{keyId})
+                                .retrieve()
+                                .body(KeyId[].class);
 
         required(deleted);
         if (!Arrays.asList(deleted).contains(keyId)) {

@@ -50,22 +50,83 @@ public final class CertificateView {
         this.zone = zone;
     }
 
-    public CertificateId getId() { return source.getId(); }
-    public String getAlias() { return source.getAlias(); }
-    public String getTitle() { return getAlias() == null || getAlias().isBlank() ? getSerial() : getAlias(); }
-    public String getDescription() { return source.getDescription(); }
-    public KeyId getSubjectKeyId() { return source.getSubjectKeyId(); }
-    public CertificateId getIssuerCertificateId() { return source.getIssuerCertificateId(); }
-    public String getSerial() { return certificate.getSerialNumber().toString(16).toUpperCase(); }
-    public String getSubjectDn() { return certificate.getSubjectX500Principal().getName(); }
-    public String getIssuerDn() { return certificate.getIssuerX500Principal().getName(); }
-    public String getSignatureAlgorithm() { return certificate.getSigAlgName(); }
-    public ZonedDateTime getNotBefore() { return certificate.getNotBefore().toInstant().atZone(zone); }
-    public ZonedDateTime getNotAfter() { return certificate.getNotAfter().toInstant().atZone(zone); }
-    public ZonedDateTime getRevokedAt() { return source.getRevokedAt() == null ? null : source.getRevokedAt().atZone(zone); }
-    public boolean isRevoked() { return source.getStatus() == CertificateStatus.REVOKED; }
-    public long getDaysLeft() { return ChronoUnit.DAYS.between(Instant.now(), certificate.getNotAfter().toInstant()); }
-    public int getPathLength() { return certificate.getBasicConstraints(); }
+    public static String pem(X509Certificate certificate) throws CertificateEncodingException {
+        return "-----BEGIN CERTIFICATE-----\n" + Base64.getMimeEncoder(64, new byte[]{'\n'})
+                                                       .encodeToString(certificate.getEncoded()) + "\n-----END CERTIFICATE-----\n";
+    }
+
+    private static String part(X500Name name, ASN1ObjectIdentifier oid) {
+        var rdns = name.getRDNs(oid);
+        return rdns.length == 0 ? null : IETFUtils.valueToString(rdns[0].getFirst().getValue());
+    }
+
+    private static String hex(byte[] bytes) {
+        return bytes == null ? null : HexFormat.ofDelimiter(":").withUpperCase().formatHex(bytes);
+    }
+
+    public CertificateId getId() {
+        return source.getId();
+    }
+
+    public String getAlias() {
+        return source.getAlias();
+    }
+
+    public String getTitle() {
+        return getAlias() == null || getAlias().isBlank() ? getSerial() : getAlias();
+    }
+
+    public String getDescription() {
+        return source.getDescription();
+    }
+
+    public KeyId getSubjectKeyId() {
+        return source.getSubjectKeyId();
+    }
+
+    public CertificateId getIssuerCertificateId() {
+        return source.getIssuerCertificateId();
+    }
+
+    public String getSerial() {
+        return certificate.getSerialNumber().toString(16).toUpperCase();
+    }
+
+    public String getSubjectDn() {
+        return certificate.getSubjectX500Principal().getName();
+    }
+
+    public String getIssuerDn() {
+        return certificate.getIssuerX500Principal().getName();
+    }
+
+    public String getSignatureAlgorithm() {
+        return certificate.getSigAlgName();
+    }
+
+    public ZonedDateTime getNotBefore() {
+        return certificate.getNotBefore().toInstant().atZone(zone);
+    }
+
+    public ZonedDateTime getNotAfter() {
+        return certificate.getNotAfter().toInstant().atZone(zone);
+    }
+
+    public ZonedDateTime getRevokedAt() {
+        return source.getRevokedAt() == null ? null : source.getRevokedAt().atZone(zone);
+    }
+
+    public boolean isRevoked() {
+        return source.getStatus() == CertificateStatus.REVOKED;
+    }
+
+    public long getDaysLeft() {
+        return ChronoUnit.DAYS.between(Instant.now(), certificate.getNotAfter().toInstant());
+    }
+
+    public int getPathLength() {
+        return certificate.getBasicConstraints();
+    }
 
     public CertificateSubject getSubject() {
         X500Name name = X500Name.getInstance(certificate.getSubjectX500Principal().getEncoded());
@@ -86,13 +147,19 @@ public final class CertificateView {
     public CertificateStatus getStatus() {
         CertificateStatus status = source.getStatus();
         return (status == CertificateStatus.ACTIVE || status == CertificateStatus.SUSPENDED)
-            && certificate.getNotAfter().toInstant().isBefore(Instant.now()) ? CertificateStatus.EXPIRED : status;
+                   && certificate.getNotAfter().toInstant().isBefore(Instant.now())
+               ? CertificateStatus.EXPIRED
+               : status;
     }
 
     public CertificateType getCertType() {
-        if (certificate.getBasicConstraints() < 0) return CertificateType.END_ENTITY;
+        if (certificate.getBasicConstraints() < 0) {
+            return CertificateType.END_ENTITY;
+        }
         return certificate.getSubjectX500Principal().equals(certificate.getIssuerX500Principal())
-            && source.getIssuerCertificateId() == null ? CertificateType.ROOT_CA : CertificateType.INTERMEDIATE_CA;
+                   && source.getIssuerCertificateId() == null
+               ? CertificateType.ROOT_CA
+               : CertificateType.INTERMEDIATE_CA;
     }
 
     public boolean isIssuerEligible() {
@@ -112,9 +179,15 @@ public final class CertificateView {
 
     public String getKeyAlgorithm() {
         var key = certificate.getPublicKey();
-        if (key instanceof RSAPublicKey rsa) return "RSA_" + rsa.getModulus().bitLength();
-        if (key instanceof ECPublicKey ec) return "EC_P" + ec.getParams().getCurve().getField().getFieldSize();
-        if (key instanceof EdECPublicKey ed) return ed.getParams().getName();
+        if (key instanceof RSAPublicKey rsa) {
+            return "RSA_" + rsa.getModulus().bitLength();
+        }
+        if (key instanceof ECPublicKey ec) {
+            return "EC_P" + ec.getParams().getCurve().getField().getFieldSize();
+        }
+        if (key instanceof EdECPublicKey ed) {
+            return ed.getParams().getName();
+        }
         return key.getAlgorithm();
     }
 
@@ -123,7 +196,9 @@ public final class CertificateView {
         List<KeyUsage> result = new ArrayList<>();
         if (bits != null) {
             for (KeyUsage usage : KeyUsage.values()) {
-                if (usage.ordinal() < bits.length && bits[usage.ordinal()]) result.add(usage);
+                if (usage.ordinal() < bits.length && bits[usage.ordinal()]) {
+                    result.add(usage);
+                }
             }
         }
         return result;
@@ -136,7 +211,9 @@ public final class CertificateView {
 
     public List<String> getSubjectAlternativeNames() throws CertificateParsingException {
         var names = certificate.getSubjectAlternativeNames();
-        if (names == null) return List.of();
+        if (names == null) {
+            return List.of();
+        }
         return names.stream().map(name -> {
             String type = switch ((Integer) name.get(0)) {
                 case 1 -> "Email";
@@ -151,29 +228,25 @@ public final class CertificateView {
 
     public String getSkid() {
         byte[] value = certificate.getExtensionValue(Extension.subjectKeyIdentifier.getId());
-        return value == null ? null : hex(SubjectKeyIdentifier.getInstance(ASN1OctetString.getInstance(value).getOctets()).getKeyIdentifier());
+        return value == null
+               ? null
+               : hex(SubjectKeyIdentifier.getInstance(ASN1OctetString.getInstance(value).getOctets())
+                                         .getKeyIdentifier());
     }
 
     public String getAkid() {
         byte[] value = certificate.getExtensionValue(Extension.authorityKeyIdentifier.getId());
-        return value == null ? null : hex(AuthorityKeyIdentifier.getInstance(ASN1OctetString.getInstance(value).getOctets()).getKeyIdentifier());
+        return value == null
+               ? null
+               : hex(AuthorityKeyIdentifier.getInstance(ASN1OctetString.getInstance(value).getOctets())
+                                           .getKeyIdentifier());
     }
 
     public String getSha256Fingerprint() throws CertificateEncodingException, NoSuchAlgorithmException {
         return hex(MessageDigest.getInstance("SHA-256").digest(certificate.getEncoded()));
     }
 
-    public String getPem() throws CertificateEncodingException { return pem(certificate); }
-
-    public static String pem(X509Certificate certificate) throws CertificateEncodingException {
-        return "-----BEGIN CERTIFICATE-----\n" + Base64.getMimeEncoder(64, new byte[] {'\n'})
-            .encodeToString(certificate.getEncoded()) + "\n-----END CERTIFICATE-----\n";
+    public String getPem() throws CertificateEncodingException {
+        return pem(certificate);
     }
-
-    private static String part(X500Name name, ASN1ObjectIdentifier oid) {
-        var rdns = name.getRDNs(oid);
-        return rdns.length == 0 ? null : IETFUtils.valueToString(rdns[0].getFirst().getValue());
-    }
-
-    private static String hex(byte[] bytes) { return bytes == null ? null : HexFormat.ofDelimiter(":").withUpperCase().formatHex(bytes); }
 }

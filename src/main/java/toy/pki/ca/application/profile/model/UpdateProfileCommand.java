@@ -1,13 +1,12 @@
 package toy.pki.ca.application.profile.model;
 
 import java.util.Set;
-
 import toy.pki.ca.domain.policy.DnPolicy;
+import toy.pki.ca.domain.policy.SanPolicy;
+import toy.pki.ca.domain.policy.SubjectKeyPolicy;
 import toy.pki.ca.domain.profile.CertificateType;
 import toy.pki.ca.domain.profile.ExtendedKeyUsageOid;
 import toy.pki.ca.domain.profile.KeyUsage;
-import toy.pki.ca.domain.policy.SanPolicy;
-import toy.pki.ca.domain.policy.SubjectKeyPolicy;
 
 public record UpdateProfileCommand(
     String id,

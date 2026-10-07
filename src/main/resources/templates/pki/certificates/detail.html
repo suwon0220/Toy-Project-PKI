@@ -1,123 +1,177 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <body>
-<div class="overlay" th:fragment="dialog" data-certificate-dialog>
-    <section class="modal" id="detail" role="dialog" aria-modal="true" aria-labelledby="certificate-title" tabindex="-1">
+<div class="overlay" data-certificate-dialog th:fragment="dialog">
+    <section aria-labelledby="certificate-title" aria-modal="true" class="modal" id="detail" role="dialog"
+             tabindex="-1">
         <div class="modal-head">
             <h2 class="modal-title break" id="certificate-title" th:text="${cert.title}">인증서 상세</h2>
             <span th:replace="~{pki/fragments/ui :: certStatus(${cert.status})}"></span>
-            <a class="modal-close" aria-label="인증서 상세 닫기" th:href="@{/pki/certificates}" data-dialog-close>
-                <svg aria-hidden="true" fill="none" height="20" width="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24">
+            <a aria-label="인증서 상세 닫기" class="modal-close" data-dialog-close th:href="@{/pki/certificates}">
+                <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-width="2"
+                     viewBox="0 0 24 24" width="20">
                     <path d="M6 6l12 12M6 18L18 6"></path>
                 </svg>
             </a>
         </div>
-        <nav class="modal-tabs" aria-label="인증서 작업">
-            <a th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='info')}" th:attr="aria-current=${detailTab == 'info'} ? 'page'">인증서 정보</a>
-            <a th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='download')}" th:attr="aria-current=${detailTab == 'download'} ? 'page'">다운로드</a>
-            <a th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='ocsp')}" th:attr="aria-current=${detailTab == 'ocsp'} ? 'page'">OCSP 요청</a>
+        <nav aria-label="인증서 작업" class="modal-tabs">
+            <a th:attr="aria-current=${detailTab == 'info'} ? 'page'"
+               th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='info')}">인증서 정보</a>
+            <a th:attr="aria-current=${detailTab == 'download'} ? 'page'"
+               th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='download')}">다운로드</a>
+            <a th:attr="aria-current=${detailTab == 'ocsp'} ? 'page'"
+               th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='ocsp')}">OCSP 요청</a>
         </nav>
         <div class="modal-body" th:if="${detailTab == 'info'}">
             <div class="alert alert-warn" th:if="${cert.revoked}">
                 <div><strong>폐기된 인증서입니다.</strong>
-                    <div th:if="${cert.revokedAt}" th:text="|폐기 시각: ${#temporals.format(cert.revokedAt, 'yyyy-MM-dd HH:mm:ss z')}|"></div>
+                    <div th:if="${cert.revokedAt}"
+                         th:text="|폐기 시각: ${#temporals.format(cert.revokedAt, 'yyyy-MM-dd HH:mm:ss z')}|"></div>
                 </div>
             </div>
             <dl class="dl">
-                <dt>별칭</dt><dd th:text="${cert.alias ?: '—'}">—</dd>
-                <dt th:if="${!#strings.isEmpty(cert.description)}">설명</dt><dd class="break" th:if="${!#strings.isEmpty(cert.description)}" th:text="${cert.description}"></dd>
-                <dt>시리얼</dt><dd class="mono break" th:text="${cert.serial}"></dd>
-                <dt>프로파일</dt><dd th:text="${cert.profileName}"></dd>
-                <dt>종류</dt><dd th:text="${#messages.msgOrNull('enum.CertificateType.' + cert.certType) ?: cert.certType}"></dd>
-                <dt>Subject</dt><dd class="mono break" th:text="${cert.subjectDn}"></dd>
-                <dt>Issuer</dt><dd class="mono break" th:text="${cert.issuerDn}"></dd>
+                <dt>별칭</dt>
+                <dd th:text="${cert.alias ?: '—'}">—</dd>
+                <dt th:if="${!#strings.isEmpty(cert.description)}">설명</dt>
+                <dd class="break" th:if="${!#strings.isEmpty(cert.description)}" th:text="${cert.description}"></dd>
+                <dt>시리얼</dt>
+                <dd class="mono break" th:text="${cert.serial}"></dd>
+                <dt>프로파일</dt>
+                <dd th:text="${cert.profileName}"></dd>
+                <dt>종류</dt>
+                <dd th:text="${#messages.msgOrNull('enum.CertificateType.' + cert.certType) ?: cert.certType}"></dd>
+                <dt>Subject</dt>
+                <dd class="mono break" th:text="${cert.subjectDn}"></dd>
+                <dt>Issuer</dt>
+                <dd class="mono break" th:text="${cert.issuerDn}"></dd>
                 <dt th:if="${cert.issuerCertificateId}">발급 CA</dt>
-                <dd th:if="${cert.issuerCertificateId}"><a th:href="@{/pki/certificates/{id}(id=${cert.issuerCertificateId.id()})}" th:text="${cert.issuerCn}"></a></dd>
-                <dt>시작</dt><dd class="mono" th:text="${#temporals.format(cert.notBefore, 'yyyy-MM-dd HH:mm z')}"></dd>
-                <dt>만료</dt><dd class="mono" th:text="${#temporals.format(cert.notAfter, 'yyyy-MM-dd HH:mm z')}"></dd>
-                <dt>공개키</dt><dd class="mono" th:text="${cert.keyAlgorithm}"></dd>
-                <dt>서명</dt><dd class="mono" th:text="${cert.signatureAlgorithm}"></dd>
-                <dt th:if="${cert.subjectKeyId}">KMS 키</dt><dd class="mono break" th:if="${cert.subjectKeyId}" th:text="${cert.subjectKeyId.value()}"></dd>
-                <dt>SHA-256</dt><dd class="mono break" th:text="${cert.sha256Fingerprint}"></dd>
+                <dd th:if="${cert.issuerCertificateId}"><a
+                        th:href="@{/pki/certificates/{id}(id=${cert.issuerCertificateId.id()})}"
+                        th:text="${cert.issuerCn}"></a></dd>
+                <dt>시작</dt>
+                <dd class="mono" th:text="${#temporals.format(cert.notBefore, 'yyyy-MM-dd HH:mm z')}"></dd>
+                <dt>만료</dt>
+                <dd class="mono" th:text="${#temporals.format(cert.notAfter, 'yyyy-MM-dd HH:mm z')}"></dd>
+                <dt>공개키</dt>
+                <dd class="mono" th:text="${cert.keyAlgorithm}"></dd>
+                <dt>서명</dt>
+                <dd class="mono" th:text="${cert.signatureAlgorithm}"></dd>
+                <dt th:if="${cert.subjectKeyId}">KMS 키</dt>
+                <dd class="mono break" th:if="${cert.subjectKeyId}" th:text="${cert.subjectKeyId.value()}"></dd>
+                <dt>SHA-256</dt>
+                <dd class="mono break" th:text="${cert.sha256Fingerprint}"></dd>
             </dl>
             <div class="divided">
                 <h3 class="card-sub">확장 필드</h3>
                 <dl class="dl">
                     <dt>Basic Constraints</dt>
-                    <dd class="mono" th:text="${cert.pathLength < 0} ? 'CA:FALSE' : (${cert.pathLength == 2147483647} ? 'CA:TRUE' : |CA:TRUE, pathLen=${cert.pathLength}|)"></dd>
-                    <dt>Key Usage</dt><dd class="mono break" th:text="${#strings.listJoin(cert.keyUsages, ', ')}"></dd>
-                    <dt>Extended Key Usage</dt><dd class="mono break" th:text="${#lists.isEmpty(cert.extendedKeyUsages)} ? '—' : ${#strings.listJoin(cert.extendedKeyUsages, ', ')}"></dd>
-                    <dt>SAN</dt><dd class="mono break"><div th:each="san : ${cert.subjectAlternativeNames}" th:text="${san}"></div><span th:if="${#lists.isEmpty(cert.subjectAlternativeNames)}">—</span></dd>
-                    <dt>SKID</dt><dd class="mono break" th:text="${cert.skid ?: '—'}"></dd>
-                    <dt>AKID</dt><dd class="mono break" th:text="${cert.akid ?: '—'}"></dd>
+                    <dd class="mono"
+                        th:text="${cert.pathLength < 0} ? 'CA:FALSE' : (${cert.pathLength == 2147483647} ? 'CA:TRUE' : |CA:TRUE, pathLen=${cert.pathLength}|)"></dd>
+                    <dt>Key Usage</dt>
+                    <dd class="mono break" th:text="${#strings.listJoin(cert.keyUsages, ', ')}"></dd>
+                    <dt>Extended Key Usage</dt>
+                    <dd class="mono break"
+                        th:text="${#lists.isEmpty(cert.extendedKeyUsages)} ? '—' : ${#strings.listJoin(cert.extendedKeyUsages, ', ')}"></dd>
+                    <dt>SAN</dt>
+                    <dd class="mono break">
+                        <div th:each="san : ${cert.subjectAlternativeNames}" th:text="${san}"></div>
+                        <span th:if="${#lists.isEmpty(cert.subjectAlternativeNames)}">—</span></dd>
+                    <dt>SKID</dt>
+                    <dd class="mono break" th:text="${cert.skid ?: '—'}"></dd>
+                    <dt>AKID</dt>
+                    <dd class="mono break" th:text="${cert.akid ?: '—'}"></dd>
                 </dl>
             </div>
         </div>
         <div class="modal-body" th:if="${detailTab == 'download'}">
             <h3 class="card-sub">인증서 다운로드</h3>
-            <form method="get" th:action="@{/pki/certificates/{id}/download(id=${cert.id.id()})}" class="stack">
+            <form class="stack" method="get" th:action="@{/pki/certificates/{id}/download(id=${cert.id.id()})}">
                 <div class="field field-sm">
                     <label class="lbl" for="certificate-format">파일 형식</label>
-                    <select class="f" name="format" id="certificate-format">
+                    <select class="f" id="certificate-format" name="format">
                         <option value="PEM">PEM — 인증서 (.pem)</option>
                         <option value="DER">DER — 인증서 (.der)</option>
                     </select>
                 </div>
-                <div class="actions"><button class="btn btn-dark" type="submit">인증서 다운로드</button></div>
+                <div class="actions">
+                    <button class="btn btn-dark" type="submit">인증서 다운로드</button>
+                </div>
             </form>
             <div class="field field-sm divided">
                 <label class="lbl" for="certificate-pem">인증서 (PEM)</label>
-                <textarea class="f mono" id="certificate-pem" readonly rows="8" spellcheck="false" th:text="${cert.pem}"></textarea>
+                <textarea class="f mono" id="certificate-pem" readonly rows="8" spellcheck="false"
+                          th:text="${cert.pem}"></textarea>
             </div>
         </div>
         <div class="modal-body" th:if="${detailTab == 'ocsp'}">
             <h3 class="card-sub">상태 조회 (OCSP)</h3>
             <p class="hint">이 CA의 OCSP 응답기에 요청하고, 응답의 대상 인증서·nonce·서명을 검증합니다.</p>
             <dl class="dl">
-                <dt>대상 인증서</dt><dd class="break" th:text="${cert.title}"></dd>
-                <dt>발급 CA</dt><dd class="break" th:text="${cert.issuerCn}"></dd>
-                <dt>시리얼</dt><dd class="mono break" th:text="${cert.serial}"></dd>
+                <dt>대상 인증서</dt>
+                <dd class="break" th:text="${cert.title}"></dd>
+                <dt>발급 CA</dt>
+                <dd class="break" th:text="${cert.issuerCn}"></dd>
+                <dt>시리얼</dt>
+                <dd class="mono break" th:text="${cert.serial}"></dd>
             </dl>
-            <form method="post" th:action="@{/pki/certificates/{id}/status-check(id=${cert.id.id()})}" data-ocsp-form>
+            <form data-ocsp-form method="post" th:action="@{/pki/certificates/{id}/status-check(id=${cert.id.id()})}">
                 <button class="btn btn-dark" type="submit">OCSP 요청</button>
             </form>
-            <div class="alert alert-err" role="alert" tabindex="-1" data-ocsp-result th:if="${ocspError}" th:text="${ocspError}"></div>
-            <div class="result" role="status" tabindex="-1" data-ocsp-result th:if="${ocspCheck}">
+            <div class="alert alert-err" data-ocsp-result role="alert" tabindex="-1" th:if="${ocspError}"
+                 th:text="${ocspError}"></div>
+            <div class="result" data-ocsp-result role="status" tabindex="-1" th:if="${ocspCheck}">
                 <dl class="dl">
                     <dt>응답 상태</dt>
-                    <dd><strong th:text="${ocspCheck.status}" th:classappend="${ocspCheck.status == 'REVOKED'} ? 'text-danger'">GOOD</strong></dd>
-                    <dt>응답 서명</dt><dd th:text="${ocspCheck.signatureValid} ? '검증됨' : '검증 실패'"></dd>
-                    <dt>대상 · nonce</dt><dd>일치</dd>
+                    <dd><strong th:classappend="${ocspCheck.status == 'REVOKED'} ? 'text-danger'"
+                                th:text="${ocspCheck.status}">GOOD</strong></dd>
+                    <dt>응답 서명</dt>
+                    <dd th:text="${ocspCheck.signatureValid} ? '검증됨' : '검증 실패'"></dd>
+                    <dt>대상 · nonce</dt>
+                    <dd>일치</dd>
                     <th:block th:if="${ocspCheck.revokedAt}">
-                        <dt>폐기 · 보류 시각</dt><dd class="mono" th:text="${#temporals.format(ocspCheck.revokedAt, 'yyyy-MM-dd HH:mm:ss z', displayTimeZone)}"></dd>
+                        <dt>폐기 · 보류 시각</dt>
+                        <dd class="mono"
+                            th:text="${#temporals.format(ocspCheck.revokedAt, 'yyyy-MM-dd HH:mm:ss z', displayTimeZone)}"></dd>
                     </th:block>
-                    <dt>생성 시각</dt><dd class="mono" th:text="${#temporals.format(ocspCheck.producedAt, 'yyyy-MM-dd HH:mm:ss z', displayTimeZone)}"></dd>
-                    <dt>thisUpdate</dt><dd class="mono" th:text="${#temporals.format(ocspCheck.thisUpdate, 'yyyy-MM-dd HH:mm:ss z', displayTimeZone)}"></dd>
-                    <dt>nextUpdate</dt><dd class="mono" th:text="${#temporals.format(ocspCheck.nextUpdate, 'yyyy-MM-dd HH:mm:ss z', displayTimeZone)}"></dd>
+                    <dt>생성 시각</dt>
+                    <dd class="mono"
+                        th:text="${#temporals.format(ocspCheck.producedAt, 'yyyy-MM-dd HH:mm:ss z', displayTimeZone)}"></dd>
+                    <dt>thisUpdate</dt>
+                    <dd class="mono"
+                        th:text="${#temporals.format(ocspCheck.thisUpdate, 'yyyy-MM-dd HH:mm:ss z', displayTimeZone)}"></dd>
+                    <dt>nextUpdate</dt>
+                    <dd class="mono"
+                        th:text="${#temporals.format(ocspCheck.nextUpdate, 'yyyy-MM-dd HH:mm:ss z', displayTimeZone)}"></dd>
                 </dl>
             </div>
             <p class="hint">GOOD은 폐기되지 않았다는 뜻입니다. 인증서의 유효기간과 신뢰 체인은 별도로 확인해야 합니다. UNKNOWN은 발급 기록을 확인할 수 없는 상태입니다.</p>
         </div>
-        <form class="modal-body" method="post" th:if="${detailTab == 'revoke' and !cert.revoked}"
-              th:action="@{/pki/certificates/{id}/revoke(id=${cert.id.id()})}" data-revoke-form>
+        <form class="modal-body" data-revoke-form method="post"
+              th:action="@{/pki/certificates/{id}/revoke(id=${cert.id.id()})}" th:if="${detailTab == 'revoke' and !cert.revoked}">
             <div class="danger-box">
                 <div class="danger-box-title">이 인증서를 폐기할까요?</div>
                 <div>폐기하면 되돌릴 수 없습니다. 폐기 상태는 이후 CRL과 OCSP 응답에 반영됩니다.</div>
                 <div th:if="${cert.pathLength >= 0}">이 CA를 폐기하면 새 인증서와 CRL·OCSP 응답 발행을 중단합니다.</div>
             </div>
-            <div class="alert alert-err" role="alert" tabindex="-1" data-revoke-error th:if="${revokeError}" th:text="${revokeError}"></div>
+            <div class="alert alert-err" data-revoke-error role="alert" tabindex="-1" th:if="${revokeError}"
+                 th:text="${revokeError}"></div>
             <dl class="dl">
-                <dt>대상 인증서</dt><dd class="break" th:text="${cert.title}"></dd>
-                <dt>시리얼</dt><dd class="mono break" th:text="${cert.serial}"></dd>
+                <dt>대상 인증서</dt>
+                <dd class="break" th:text="${cert.title}"></dd>
+                <dt>시리얼</dt>
+                <dd class="mono break" th:text="${cert.serial}"></dd>
             </dl>
-            <div class="field field-sm" th:with="confirmation=${#strings.substring(cert.serial, #strings.length(cert.serial) > 6 ? #strings.length(cert.serial) - 6 : 0)}">
-                <label class="lbl" for="confirmSerial">확인: 시리얼 끝 6자리 <span class="mono" th:text="${confirmation}"></span> 입력</label>
-                <input class="f mono" id="confirmSerial" name="confirmSerial" required maxlength="6" autocomplete="off" spellcheck="false"
-                       data-confirm-input th:attr="data-confirm-value=${confirmation}">
+            <div class="field field-sm"
+                 th:with="confirmation=${#strings.substring(cert.serial, #strings.length(cert.serial) > 6 ? #strings.length(cert.serial) - 6 : 0)}">
+                <label class="lbl" for="confirmSerial">확인: 시리얼 끝 6자리 <span class="mono"
+                                                                           th:text="${confirmation}"></span> 입력</label>
+                <input autocomplete="off" class="f mono" data-confirm-input id="confirmSerial" maxlength="6" name="confirmSerial"
+                       required
+                       spellcheck="false" th:attr="data-confirm-value=${confirmation}">
             </div>
             <div class="actions actions-end">
                 <a class="btn btn-outline" th:href="@{/pki/certificates/{id}(id=${cert.id.id()})}">취소</a>
-                <button class="btn btn-danger" type="submit" data-confirm-button>인증서 폐기</button>
+                <button class="btn btn-danger" data-confirm-button type="submit">인증서 폐기</button>
             </div>
         </form>
         <div class="modal-body" th:if="${detailTab == 'revoke' and cert.revoked}">
@@ -125,7 +179,8 @@
             <a th:href="@{/pki/certificates/{id}(id=${cert.id.id()})}">인증서 정보로</a>
         </div>
         <div class="modal-foot actions-end" th:if="${detailTab != 'revoke' and !cert.revoked}">
-            <a class="btn btn-danger-outline" th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='revoke')}">인증서 폐기</a>
+            <a class="btn btn-danger-outline" th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='revoke')}">인증서
+                폐기</a>
         </div>
     </section>
     <script defer th:src="@{/js/certificate-operations.js}"></script>

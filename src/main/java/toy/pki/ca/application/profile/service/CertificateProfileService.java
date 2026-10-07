@@ -39,7 +39,7 @@ public class CertificateProfileService {
 
     public CertificateProfile findById(String profileId) {
         return repository.findById(new ProfileId(profileId))
-            .orElseThrow(() -> new IllegalArgumentException("Profile not found: " + profileId));
+                         .orElseThrow(() -> new IllegalArgumentException("Profile not found: " + profileId));
     }
 
     public List<CertificateProfile> findAll() {

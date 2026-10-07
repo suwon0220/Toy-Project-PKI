@@ -28,7 +28,7 @@ public class CertificateProfile {
     @Size(min = 1, message = "description은 null이 아닐 경우 비어있을 수 없습니다")
     private String description;
     // Status of the certificate profile
-    @NotNull private ProfileStatus status = ProfileStatus.DRAFT;
+    @NotNull private ProfileStatus status;
     // Validity period in days
     @Min(1) private int defaultValidityDays;
     @Min(1) private int maxValidityDays;
@@ -47,6 +47,25 @@ public class CertificateProfile {
     // Key Usage
     @NotEmpty private Set<@NotNull KeyUsage> keyUsages;
     @NotNull private Set<@NotNull @Valid ExtendedKeyUsageOid> extendedKeyUsages;
+
+    public CertificateProfile(
+        ProfileId id,
+        String alias,
+        String description,
+        int defaultValidityDays,
+        int maxValidityDays,
+        SubjectKeyPolicy subjectKeyPolicy,
+        Set<CertificateSignatureAlgorithm> allowedSignatures,
+        SanPolicy sanPolicy,
+        DnPolicy dnPolicy,
+        CertificateType certificateType,
+        Integer pathLenConstraint,
+        Set<KeyUsage> keyUsages,
+        Set<ExtendedKeyUsageOid> extendedKeyUsages) {
+        this(id, alias, description, ProfileStatus.DRAFT, defaultValidityDays, maxValidityDays,
+            subjectKeyPolicy, allowedSignatures, sanPolicy, dnPolicy, certificateType, pathLenConstraint,
+            keyUsages, extendedKeyUsages);
+    }
 
     @AssertTrue(message = "defaultValidityDays는 maxValidityDays보다 작거나 같아야 합니다")
     public boolean isValidValidityRange() {
@@ -81,25 +100,6 @@ public class CertificateProfile {
         return extendedKeyUsages.stream()
                                 .filter(Objects::nonNull)
                                 .allMatch(eku -> eku.isCompatibleWith(keyUsages));
-    }
-
-    public CertificateProfile(
-        ProfileId id,
-        String alias,
-        String description,
-        int defaultValidityDays,
-        int maxValidityDays,
-        SubjectKeyPolicy subjectKeyPolicy,
-        Set<CertificateSignatureAlgorithm> allowedSignatures,
-        SanPolicy sanPolicy,
-        DnPolicy dnPolicy,
-        CertificateType certificateType,
-        Integer pathLenConstraint,
-        Set<KeyUsage> keyUsages,
-        Set<ExtendedKeyUsageOid> extendedKeyUsages) {
-        this(id, alias, description, ProfileStatus.DRAFT, defaultValidityDays, maxValidityDays,
-            subjectKeyPolicy, allowedSignatures, sanPolicy, dnPolicy, certificateType, pathLenConstraint,
-            keyUsages, extendedKeyUsages);
     }
 
     public void activate() {

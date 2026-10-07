@@ -34,17 +34,25 @@ public class CertificateStatusController {
     private final MyCertificateRepository repository;
 
     @GetMapping("/certificates/crl")
-    public ResponseEntity<byte[]> crl(@RequestParam String issuerId, @RequestParam(defaultValue = "DER") CrlFormat format)
+    public ResponseEntity<byte[]> crl(
+        @RequestParam String issuerId,
+        @RequestParam(defaultValue = "DER") CrlFormat format)
         throws GeneralSecurityException, IOException {
         CertificateId id = requireCertificate(issuerId);
         var crl = statusService.crl(id);
         byte[] bytes = crl.getEncoded();
-        if (format == CrlFormat.PEM) bytes = ("-----BEGIN X509 CRL-----\n"
-            + Base64.getMimeEncoder(64, new byte[] {'\n'}).encodeToString(bytes)
-            + "\n-----END X509 CRL-----\n").getBytes(StandardCharsets.US_ASCII);
+        if (format == CrlFormat.PEM) {
+            bytes = ("-----BEGIN X509 CRL-----\n"
+                + Base64.getMimeEncoder(64, new byte[]{'\n'}).encodeToString(bytes)
+                + "\n-----END X509 CRL-----\n").getBytes(StandardCharsets.US_ASCII);
+        }
         return attachment(bytes, format == CrlFormat.DER ? "application/pkix-crl" : "application/x-pem-file",
             "crl-" + java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                .digest(crl.getIssuerX500Principal().getEncoded()), 0, 8) + (format == CrlFormat.DER ? ".crl" : ".pem"));
+                                                                                   .digest(crl.getIssuerX500Principal()
+                                                                                              .getEncoded()), 0, 8) + (
+                format == CrlFormat.DER
+                ? ".crl"
+                : ".pem"));
     }
 
     @PostMapping("/certificates/{certificateId}/status-check")
@@ -63,28 +71,44 @@ public class CertificateStatusController {
     }
 
     @GetMapping("/certificates/{certificateId}/ocsp-request")
-    public ResponseEntity<byte[]> request(@PathVariable String certificateId) throws GeneralSecurityException, IOException {
+    public ResponseEntity<byte[]> request(@PathVariable String certificateId)
+        throws GeneralSecurityException, IOException {
         return attachment(statusService.request(requireCertificate(certificateId)), "application/ocsp-request", "ocsp-request.der");
     }
 
-    @PostMapping(value = "/ocsp/{issuerId}", consumes = "application/ocsp-request", produces = "application/ocsp-response")
+    @PostMapping(
+        value = "/ocsp/{issuerId}",
+        consumes = "application/ocsp-request",
+        produces = "application/ocsp-response")
     public ResponseEntity<byte[]> respond(@PathVariable String issuerId, HttpServletRequest request)
         throws GeneralSecurityException, IOException {
-        byte[] response = statusService.respond(requireCertificate(issuerId), request.getInputStream().readNBytes(8193));
+        byte[] response = statusService.respond(requireCertificate(issuerId), request.getInputStream()
+                                                                                     .readNBytes(8193));
         return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store")
-            .contentType(MediaType.parseMediaType("application/ocsp-response")).body(response);
+                             .contentType(MediaType.parseMediaType("application/ocsp-response")).body(response);
     }
 
     private CertificateId requireCertificate(String value) {
         CertificateId id = new CertificateId(value);
-        if (repository.findById(id).isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "인증서를 찾을 수 없습니다.");
+        if (repository.findById(id).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "인증서를 찾을 수 없습니다.");
+        }
         return id;
     }
 
     private ResponseEntity<byte[]> attachment(byte[] bytes, String type, String filename) {
-        return ResponseEntity.ok().contentType(MediaType.parseMediaType(type)).header(HttpHeaders.CACHE_CONTROL, "no-store")
-            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(filename).build().toString()).body(bytes);
+        return ResponseEntity.ok()
+                             .contentType(MediaType.parseMediaType(type))
+                             .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                             .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                                                                                        .filename(filename)
+                                                                                        .build()
+                                                                                        .toString())
+                             .body(bytes);
     }
 
-    public enum CrlFormat { PEM, DER }
+    public enum CrlFormat {
+        PEM,
+        DER
+    }
 }

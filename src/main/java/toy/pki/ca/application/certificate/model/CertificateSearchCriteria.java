@@ -7,7 +7,7 @@ public record CertificateSearchCriteria(
 
     public CertificateSearchCriteria {
         keyword = keyword == null || keyword.isBlank()
-            ? null
-            : keyword.strip().toLowerCase(Locale.ROOT);
+                  ? null
+                  : keyword.strip().toLowerCase(Locale.ROOT);
     }
 }

@@ -24,13 +24,13 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import toy.pki.ca.application.profile.model.CreateProfileCommand;
 import toy.pki.ca.application.profile.model.UpdateProfileCommand;
 import toy.pki.ca.application.profile.service.CertificateProfileService;
+import toy.pki.ca.domain.policy.SanPolicy;
+import toy.pki.ca.domain.policy.SubjectKeyPolicy;
 import toy.pki.ca.domain.profile.CertificateProfile;
 import toy.pki.ca.domain.profile.ExtendedKeyUsageOid;
 import toy.pki.ca.domain.profile.KeyUsage;
 import toy.pki.ca.domain.profile.ProfileId;
-import toy.pki.ca.domain.policy.SanPolicy;
 import toy.pki.ca.domain.profile.SanType;
-import toy.pki.ca.domain.policy.SubjectKeyPolicy;
 import toy.pki.ca.domain.profile.SubjectKeySpec;
 import toy.pki.kms.web.KeyAlgorithmPreset;
 
@@ -122,11 +122,11 @@ public class CertificateProfileController {
             Set.copyOf(createProfileForm.getAllowedSanTypes()));
 
         Set<ExtendedKeyUsageOid> extendedKeyUsages = createProfileForm.getExtendedKeyUsageOids()
-            .stream()
-            .filter(oid -> oid != null && !oid.isBlank())
-            .map(String::strip)
-            .map(ExtendedKeyUsageOid::new)
-            .collect(Collectors.toSet());
+                                                                      .stream()
+                                                                      .filter(oid -> oid != null && !oid.isBlank())
+                                                                      .map(String::strip)
+                                                                      .map(ExtendedKeyUsageOid::new)
+                                                                      .collect(Collectors.toSet());
 
         CreateProfileCommand request = new CreateProfileCommand(
             createProfileForm.getAlias(),
@@ -161,18 +161,18 @@ public class CertificateProfileController {
         }
 
         SubjectKeyPolicy subjectKeyPolicy = new SubjectKeyPolicy(
-            new HashSet<SubjectKeySpec>(updateProfileForm.getKeyAlgorithms()));
+            new HashSet<>(updateProfileForm.getKeyAlgorithms()));
 
         SanPolicy sanPolicy = new SanPolicy(
             updateProfileForm.isSanRequired(),
             Set.copyOf(updateProfileForm.getAllowedSanTypes()));
 
         Set<ExtendedKeyUsageOid> extendedKeyUsages = updateProfileForm.getExtendedKeyUsageOids()
-            .stream()
-            .filter(oid -> oid != null && !oid.isBlank())
-            .map(String::strip)
-            .map(ExtendedKeyUsageOid::new)
-            .collect(Collectors.toSet());
+                                                                      .stream()
+                                                                      .filter(oid -> oid != null && !oid.isBlank())
+                                                                      .map(String::strip)
+                                                                      .map(ExtendedKeyUsageOid::new)
+                                                                      .collect(Collectors.toSet());
 
         UpdateProfileCommand request = new UpdateProfileCommand(
             profileId,
@@ -199,7 +199,7 @@ public class CertificateProfileController {
         return "redirect:/pki/profiles";
     }
 
-    @PostMapping({ "/{profileId}/deactivate" })
+    @PostMapping({"/{profileId}/deactivate"})
     public String deactivate(@PathVariable String profileId) {
         certificateProfileService.deactivate(profileId);
         return "redirect:/pki/profiles";

@@ -18,5 +18,7 @@ public record CertificateSerialNumber(BigInteger value) implements Serializable 
         return new CertificateSerialNumber(new BigInteger(159, RANDOM).setBit(158));
     }
 
-    public String hex() { return value.toString(16).toUpperCase(Locale.ROOT); }
+    public String hex() {
+        return value.toString(16).toUpperCase(Locale.ROOT);
+    }
 }

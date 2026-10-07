@@ -30,8 +30,8 @@ import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.bouncycastle.util.IPAddress;
 import org.springframework.stereotype.Component;
 import toy.pki.ca.application.certificate.model.IssueCertificateCommand;
-import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
 import toy.pki.ca.domain.certificate.CertificateSerialNumber;
+import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
 import toy.pki.ca.domain.certificate.CertificateStatus;
 import toy.pki.ca.domain.certificate.CertificateSubject;
 import toy.pki.ca.domain.certificate.MyCertificate;
@@ -55,7 +55,8 @@ public class BouncyCastleCertificateIssuer {
     private final KeyManagementService kms;
     private final Validator validator;
 
-    public X509Certificate issue(CertificateProfile profile, IssueCertificateCommand request, MyCertificate issuer,
+    public X509Certificate issue(
+        CertificateProfile profile, IssueCertificateCommand request, MyCertificate issuer,
         CertificateSerialNumber serial)
         throws GeneralSecurityException, IOException {
         validateProfile(profile, request);
@@ -66,12 +67,14 @@ public class BouncyCastleCertificateIssuer {
             throw new IllegalArgumentException("A subject DN is required unless an end-entity certificate has SANs");
         }
         GeneralName[] sans = request.subjectAlternativeNames().stream()
-            .map(this::generalName).toArray(GeneralName[]::new);
+                                    .map(this::generalName).toArray(GeneralName[]::new);
         int days = request.validityDays() == null ? profile.getDefaultValidityDays() : request.validityDays();
         if (days < 1 || days > profile.getMaxValidityDays()) {
             throw new IllegalArgumentException("Validity must be between 1 and " + profile.getMaxValidityDays() + " days");
         }
-        Instant notBefore = (request.notBefore() == null ? Instant.now() : request.notBefore()).truncatedTo(ChronoUnit.SECONDS);
+        Instant notBefore = (request.notBefore() == null
+                             ? Instant.now()
+                             : request.notBefore()).truncatedTo(ChronoUnit.SECONDS);
         Instant notAfter = notBefore.plus(days, ChronoUnit.DAYS);
         if (!notAfter.isAfter(Instant.now())) {
             throw new IllegalArgumentException("Certificate validity has already ended");
@@ -83,10 +86,13 @@ public class BouncyCastleCertificateIssuer {
             throw new IllegalArgumentException("The subject key is not allowed by the profile");
         }
         SubjectPublicKeyInfo signingKey = root ? subjectKey
-            : SubjectPublicKeyInfo.getInstance(issuerCertificate.getPublicKey().getEncoded());
+                                               : SubjectPublicKeyInfo.getInstance(issuerCertificate.getPublicKey()
+                                                                                                   .getEncoded());
         KeyId signingKeyId = root ? request.subjectKeyId() : issuer.getSubjectKeyId();
         CertificateSignatureAlgorithm algorithm = signatureAlgorithm(profile, request.signatureAlgorithm(), keySpec(signingKey));
-        X500Name issuerName = root ? subject : X500Name.getInstance(issuerCertificate.getSubjectX500Principal().getEncoded());
+        X500Name issuerName = root
+                              ? subject
+                              : X500Name.getInstance(issuerCertificate.getSubjectX500Principal().getEncoded());
         X509v3CertificateBuilder builder = new X509v3CertificateBuilder(
             issuerName, serial.value(), Date.from(notBefore), Date.from(notAfter), subject, subjectKey);
         builder.addExtension(Extension.basicConstraints, true,
@@ -95,8 +101,8 @@ public class BouncyCastleCertificateIssuer {
         builder.addExtension(Extension.keyUsage, true, new org.bouncycastle.asn1.x509.KeyUsage(usages));
         if (!profile.getExtendedKeyUsages().isEmpty()) {
             KeyPurposeId[] purposes = profile.getExtendedKeyUsages().stream()
-                .map(eku -> KeyPurposeId.getInstance(new ASN1ObjectIdentifier(eku.value())))
-                .toArray(KeyPurposeId[]::new);
+                                             .map(eku -> KeyPurposeId.getInstance(new ASN1ObjectIdentifier(eku.value())))
+                                             .toArray(KeyPurposeId[]::new);
             builder.addExtension(Extension.extendedKeyUsage, false, new ExtendedKeyUsage(purposes));
         }
         if (sans.length > 0) {
@@ -105,10 +111,10 @@ public class BouncyCastleCertificateIssuer {
         JcaX509ExtensionUtils extensions = new JcaX509ExtensionUtils();
         builder.addExtension(Extension.subjectKeyIdentifier, false, extensions.createSubjectKeyIdentifier(subjectKey));
         builder.addExtension(Extension.authorityKeyIdentifier, false, root
-            ? extensions.createAuthorityKeyIdentifier(subjectKey)
-            : extensions.createAuthorityKeyIdentifier(issuerCertificate));
+                                                                      ? extensions.createAuthorityKeyIdentifier(subjectKey)
+                                                                      : extensions.createAuthorityKeyIdentifier(issuerCertificate));
         X509Certificate certificate = new JcaX509CertificateConverter().setProvider(PROVIDER)
-            .getCertificate(builder.build(new KmsContentSigner(kms, signingKeyId, algorithm)));
+                                                                       .getCertificate(builder.build(new KmsContentSigner(kms, signingKeyId, algorithm)));
         // Detect a wrong KMS key/signature before saving the certificate.
         certificate.verify(new JcaPEMKeyConverter().setProvider(PROVIDER).getPublicKey(signingKey), PROVIDER);
         return certificate;
@@ -120,20 +126,27 @@ public class BouncyCastleCertificateIssuer {
         }
         var violations = validator.validate(profile);
         if (!violations.isEmpty()) {
-            throw new IllegalArgumentException("Invalid certificate profile: " + violations.iterator().next().getMessage());
+            throw new IllegalArgumentException("Invalid certificate profile: " + violations.iterator()
+                                                                                           .next()
+                                                                                           .getMessage());
         }
         if (profile.getCertificateType() == null || profile.getAllowedSignatures() == null
-            || profile.getAllowedSignatures().isEmpty() || profile.getAllowedSignatures().stream().anyMatch(Objects::isNull)) {
+            || profile.getAllowedSignatures().isEmpty() || profile.getAllowedSignatures()
+                                                                  .stream()
+                                                                  .anyMatch(Objects::isNull)) {
             throw new IllegalArgumentException("Certificate type and allowed signatures are required");
         }
-        if (profile.getCertificateType() != CertificateType.END_ENTITY && !profile.getKeyUsages().contains(KeyUsage.KEY_CERT_SIGN)) {
+        if (profile.getCertificateType() != CertificateType.END_ENTITY && !profile.getKeyUsages()
+                                                                                  .contains(KeyUsage.KEY_CERT_SIGN)) {
             throw new IllegalArgumentException("CA profiles must include KEY_CERT_SIGN");
         }
         if (profile.getSanPolicy().required() && request.subjectAlternativeNames().isEmpty()) {
             throw new IllegalArgumentException("Subject alternative names are required by the profile");
         }
         if (request.subjectAlternativeNames().stream().anyMatch(san -> san.type() == null
-            || profile.getSanPolicy().allowedTypes() == null || !profile.getSanPolicy().allowedTypes().contains(san.type()))) {
+            || profile.getSanPolicy().allowedTypes() == null || !profile.getSanPolicy()
+                                                                        .allowedTypes()
+                                                                        .contains(san.type()))) {
             throw new IllegalArgumentException("A subject alternative name type is not allowed by the profile");
         }
     }
@@ -149,7 +162,8 @@ public class BouncyCastleCertificateIssuer {
         if (certificate.getBasicConstraints() < 0 || usages == null || usages.length <= 5 || !usages[5]) {
             throw new IllegalArgumentException("Issuer must be a CA with KEY_CERT_SIGN");
         }
-        if (notBefore.isBefore(certificate.getNotBefore().toInstant()) || notAfter.isAfter(certificate.getNotAfter().toInstant())) {
+        if (notBefore.isBefore(certificate.getNotBefore().toInstant()) || notAfter.isAfter(certificate.getNotAfter()
+                                                                                                      .toInstant())) {
             throw new IllegalArgumentException("Certificate validity must be within the issuer validity period");
         }
         return certificate;
@@ -182,10 +196,10 @@ public class BouncyCastleCertificateIssuer {
     }
 
     private void add(X500NameBuilder name, ASN1ObjectIdentifier oid, DnAttributePolicy policy, String input) {
-        String value = policy != null && policy.getFixedValue() != null && !policy.getFixedValue().isBlank()
-            ? policy.getFixedValue() : input;
+        String value = policy != null && policy.fixedValue() != null && !policy.fixedValue().isBlank()
+                       ? policy.fixedValue() : input;
         if (value == null || value.isBlank()) {
-            if (policy != null && policy.isRequired()) {
+            if (policy != null && policy.required()) {
                 throw new IllegalArgumentException("Required subject attribute: " + BCStyle.INSTANCE.oidToDisplayName(oid));
             }
             return;
@@ -199,13 +213,15 @@ public class BouncyCastleCertificateIssuer {
     private SubjectKeySpec keySpec(SubjectPublicKeyInfo key) throws IOException {
         String algorithm = key.getAlgorithm().getAlgorithm().getId();
         String preset = switch (algorithm) {
-            case "1.2.840.113549.1.1.1" -> "RSA_" + RSAPublicKey.getInstance(key.parsePublicKey()).getModulus().bitLength();
-            case "1.2.840.10045.2.1" -> switch (ASN1ObjectIdentifier.getInstance(key.getAlgorithm().getParameters()).getId()) {
-                case "1.2.840.10045.3.1.7" -> "EC_P256";
-                case "1.3.132.0.34" -> "EC_P384";
-                case "1.3.132.0.35" -> "EC_P521";
-                default -> throw new IllegalArgumentException("Unsupported EC curve");
-            };
+            case "1.2.840.113549.1.1.1" ->
+                "RSA_" + RSAPublicKey.getInstance(key.parsePublicKey()).getModulus().bitLength();
+            case "1.2.840.10045.2.1" ->
+                switch (ASN1ObjectIdentifier.getInstance(key.getAlgorithm().getParameters()).getId()) {
+                    case "1.2.840.10045.3.1.7" -> "EC_P256";
+                    case "1.3.132.0.34" -> "EC_P384";
+                    case "1.3.132.0.35" -> "EC_P521";
+                    default -> throw new IllegalArgumentException("Unsupported EC curve");
+                };
             case "1.3.101.112" -> "ED25519";
             case "1.3.101.113" -> "ED448";
             default -> throw new IllegalArgumentException("Unsupported public key algorithm: " + algorithm);
@@ -222,8 +238,8 @@ public class BouncyCastleCertificateIssuer {
             return requested;
         }
         return profile.getAllowedSignatures().stream().filter(Objects::nonNull).sorted()
-            .filter(algorithm -> compatible(algorithm, key)).findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("No allowed signature algorithm matches the signing key"));
+                      .filter(algorithm -> compatible(algorithm, key)).findFirst()
+                      .orElseThrow(() -> new IllegalArgumentException("No allowed signature algorithm matches the signing key"));
     }
 
     private boolean compatible(CertificateSignatureAlgorithm algorithm, SubjectKeySpec key) {

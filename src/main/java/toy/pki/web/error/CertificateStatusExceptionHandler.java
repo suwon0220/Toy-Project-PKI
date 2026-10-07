@@ -12,7 +12,9 @@ public class CertificateStatusExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public void handle(Exception failure, HttpServletResponse response) throws Exception {
         // Wrapped signing/I/O failures retain their original error handling.
-        if (!(failure instanceof IllegalArgumentException)) throw failure;
+        if (!(failure instanceof IllegalArgumentException)) {
+            throw failure;
+        }
         response.sendError(HttpStatus.BAD_REQUEST.value(), failure.getMessage());
     }
 }

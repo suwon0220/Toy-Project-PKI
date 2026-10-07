@@ -11,13 +11,13 @@ import java.util.Set;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import toy.pki.ca.domain.certificate.CertificateId;
 import toy.pki.ca.application.certificate.model.IssueCertificateCommand;
+import toy.pki.ca.domain.certificate.CertificateId;
 import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
 import toy.pki.ca.domain.certificate.CertificateSubject;
 import toy.pki.ca.domain.certificate.SubjectAlternativeName;
-import toy.pki.ca.domain.profile.SanType;
 import toy.pki.ca.domain.profile.ProfileId;
+import toy.pki.ca.domain.profile.SanType;
 import toy.pki.ca.domain.profile.SubjectKeySpec;
 import toy.pki.kms.domain.KeyId;
 
@@ -66,8 +66,10 @@ public class CertificateIssueForm {
     }
 
     private void addSans(Set<SubjectAlternativeName> names, SanType type, String values) {
-        if (values != null) values.lines().filter(value -> !value.isBlank())
-            .map(value -> new SubjectAlternativeName(type, value)).forEach(names::add);
+        if (values != null) {
+            values.lines().filter(value -> !value.isBlank())
+                  .map(value -> new SubjectAlternativeName(type, value)).forEach(names::add);
+        }
     }
 
     @Data

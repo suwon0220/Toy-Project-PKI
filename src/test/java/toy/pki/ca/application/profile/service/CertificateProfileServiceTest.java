@@ -81,7 +81,11 @@ class CertificateProfileServiceTest {
         service.activate(id.value());
         service.duplicateDraft(id.value());
         CertificateProfile original = service.findById(id.value());
-        CertificateProfile copy = service.findAll().stream().filter(profile -> !profile.getId().equals(id)).findFirst().orElseThrow();
+        CertificateProfile copy = service.findAll()
+                                         .stream()
+                                         .filter(profile -> !profile.getId().equals(id))
+                                         .findFirst()
+                                         .orElseThrow();
         assertThat(copy.getStatus()).isEqualTo(ProfileStatus.DRAFT);
         assertThat(copy.getAlias()).isEqualTo("Root CA (복제)");
         assertThat(copy.getDnPolicy()).isEqualTo(original.getDnPolicy());
@@ -102,7 +106,8 @@ class CertificateProfileServiceTest {
         service.deactivate(first.value());
         assertThat(service.findById(first.value()).getStatus()).isEqualTo(ProfileStatus.INACTIVE);
         service.delete(first.value());
-        assertThat(service.findAll()).singleElement().satisfies(profile -> assertThat(profile.getId()).isEqualTo(second));
+        assertThat(service.findAll()).singleElement()
+                                     .satisfies(profile -> assertThat(profile.getId()).isEqualTo(second));
         assertThatThrownBy(() -> service.findById(first.value())).isInstanceOf(IllegalArgumentException.class);
     }
 

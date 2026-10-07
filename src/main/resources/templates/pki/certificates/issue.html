@@ -53,9 +53,11 @@
             <input name="mode" type="hidden" value="issue">
             <input name="keyMode" th:value="${isNewKey} ? 'NEW' : 'EXISTING'" type="hidden">
 
-            <div class="alert alert-err" role="alert" tabindex="-1" id="issue-errors" th:if="${#fields.hasAnyErrors()}">
+            <div class="alert alert-err" id="issue-errors" role="alert" tabindex="-1" th:if="${#fields.hasAnyErrors()}">
                 <div><strong>입력값을 확인해 주세요.</strong>
-                    <ul><li th:each="error : ${#fields.allErrors()}" th:text="${error}"></li></ul>
+                    <ul>
+                        <li th:each="error : ${#fields.allErrors()}" th:text="${error}"></li>
+                    </ul>
                 </div>
             </div>
 
@@ -74,8 +76,8 @@
                                         th:classappend="${#fields.hasErrors('profileId')} ? 'is-invalid'">
                                     <option th:if="${#lists.isEmpty(profileList)}" value="">ACTIVE 프로파일 없음</option>
                                     <option th:each="p : ${profileList}"
-                                            th:text="|${p.alias ?: p.id.value()} (${p.certificateType != null ? (#messages.msgOrNull('enum.CertificateType.' + p.certificateType) ?: p.certificateType.name()) : '종류 미지정'})|"
                                             th:selected="${sp != null and p.id == sp.id}"
+                                            th:text="|${p.alias ?: p.id.value()} (${p.certificateType != null ? (#messages.msgOrNull('enum.CertificateType.' + p.certificateType) ?: p.certificateType.name()) : '종류 미지정'})|"
                                             th:value="${p.id.value()}">TLS 서버 (일반 인증서)
                                     </option>
                                 </select>
@@ -99,7 +101,8 @@
                                 <div class="err" th:errors="*{validityDays}"
                                      th:if="${#fields.hasErrors('validityDays')}">유효기간 오류
                                 </div>
-                                <div class="hint" th:text="|프로파일 기본 ${sp?.defaultValidityDays ?: '-'}일${sp?.maxValidityDays != null ? ' · 상한 ' + sp.maxValidityDays + '일' : ''}|"
+                                <div class="hint"
+                                     th:text="|프로파일 기본 ${sp?.defaultValidityDays ?: '-'}일${sp?.maxValidityDays != null ? ' · 상한 ' + sp.maxValidityDays + '일' : ''}|"
                                      th:unless="${#fields.hasErrors('validityDays')}">
                                     프로파일 상한 초과 시 거부
                                 </div>
@@ -113,14 +116,17 @@
                                 <div class="err" th:errors="*{notBefore}" th:if="${#fields.hasErrors('notBefore')}">시작
                                     시각 오류
                                 </div>
-                                <div class="hint" th:unless="${#fields.hasErrors('notBefore')}" th:text="|${displayTimeZone} 기준 · 비우면 발급 시각|">비우면 발급 시각</div>
+                                <div class="hint" th:text="|${displayTimeZone} 기준 · 비우면 발급 시각|"
+                                     th:unless="${#fields.hasErrors('notBefore')}">비우면 발급 시각
+                                </div>
                             </div>
                             <div class="field">
                                 <label class="lbl" for="signatureAlgorithm">서명 알고리즘</label>
                                 <select class="f" th:field="*{signatureAlgorithm}">
                                     <option value="">자동 선택</option>
-                                    <option th:each="algorithm : ${sp?.allowedSignatures}" th:if="${algorithm.name() != 'UNKNOWN'}"
-                                            th:value="${algorithm}" th:text="${algorithm.jcaName}"></option>
+                                    <option th:each="algorithm : ${sp?.allowedSignatures}"
+                                            th:if="${algorithm.name() != 'UNKNOWN'}"
+                                            th:text="${algorithm.jcaName}" th:value="${algorithm}"></option>
                                 </select>
                                 <div class="hint">프로파일과 발급자 키에 맞는 알고리즘을 사용합니다.</div>
                             </div>
@@ -139,26 +145,28 @@
                     <section class="card">
                         <h2 class="card-title">2. 발급 CA</h2>
                         <div class="field">
-                                <label class="lbl" for="issuerCertificateId">발급 CA <span aria-hidden="true" th:unless="${isRootCa}"
-                                                                                     class="req">*</span></label>
-                            <select class="f" id="issuerCertificateId" name="issuerCertificateId"
-                                    th:disabled="${isRootCa}" th:required="${!isRootCa}"
-                                    aria-describedby="issuer-hint"
-                                    th:classappend="${#fields.hasErrors('issuerCertificateId')} ? 'is-invalid'">
-                                <option th:text="${isRootCa} ? '자체 서명 (발급 CA 불필요)' : (${#lists.isEmpty(issuerList)} ? '발급 가능한 CA 인증서 없음' : '선택하세요')" value="">
+                            <label class="lbl" for="issuerCertificateId">발급 CA <span aria-hidden="true"
+                                                                                     class="req"
+                                                                                     th:unless="${isRootCa}">*</span></label>
+                            <select aria-describedby="issuer-hint" class="f" id="issuerCertificateId"
+                                    name="issuerCertificateId" th:classappend="${#fields.hasErrors('issuerCertificateId')} ? 'is-invalid'"
+                                    th:disabled="${isRootCa}"
+                                    th:required="${!isRootCa}">
+                                <option th:text="${isRootCa} ? '자체 서명 (발급 CA 불필요)' : (${#lists.isEmpty(issuerList)} ? '발급 가능한 CA 인증서 없음' : '선택하세요')"
+                                        value="">
                                     선택하세요
                                 </option>
-                                <option th:each="ca : ${issuerList}"
+                                <option th:data-dn="${dn}"
+                                        th:each="ca : ${issuerList}"
+                                        th:selected="${!isRootCa and ca.id.id() == selectedIssuerId}"
+                                        th:text="${ca.title}"
+                                        th:value="${ca.id.id()}"
                                         th:with="s=${ca.subject},
                                                  dn=${#strings.listJoin({#strings.isEmpty(s.domainComponent()) ? null : 'DC=' + s.domainComponent(),
                                                                         #strings.isEmpty(s.commonName()) ? null : 'CN=' + s.commonName(),
                                                                         #strings.isEmpty(s.organizationUnit()) ? null : 'OU=' + s.organizationUnit(),
                                                                         #strings.isEmpty(s.organization()) ? null : 'O=' + s.organization(),
-                                                                        #strings.isEmpty(s.country()) ? null : 'C=' + s.country()}.?[#this != null], ', ')}"
-                                        th:data-dn="${dn}"
-                                        th:selected="${!isRootCa and ca.id.id() == selectedIssuerId}"
-                                        th:text="${ca.title}"
-                                        th:value="${ca.id.id()}">Issuing CA — TLS
+                                                                        #strings.isEmpty(s.country()) ? null : 'C=' + s.country()}.?[#this != null], ', ')}">Issuing CA — TLS
                                 </option>
                             </select>
                             <div class="hint" id="issuer-hint" th:if="${isRootCa}">
@@ -198,7 +206,8 @@
                         <!--/* 새 키: CertificateIssueForm.subjectKeySpec (EXISTING 이면 서버에서 무시) */-->
                         <div class="grid-2" th:if="${isNewKey}">
                             <div class="field">
-                                <label class="lbl" for="subjectKeySpec">키 알고리즘 <span aria-hidden="true" class="req">*</span></label>
+                                <label class="lbl" for="subjectKeySpec">키 알고리즘 <span aria-hidden="true"
+                                                                                     class="req">*</span></label>
                                 <select class="f" th:errorclass="is-invalid" th:field="*{subjectKeySpec}">
                                     <option th:if="${newKeyAlgorithms.isEmpty()}" value="">허용 알고리즘 없음</option>
                                     <option th:each="a : ${newKeyAlgorithms}" th:text="${a.name()}"
@@ -231,7 +240,8 @@
                                     KMS 키
                                     생성</a>으로 발급하거나 <a th:href="@{/pki/kms}">키 관리</a>에서 먼저 만드세요.
                             </div>
-                            <div class="hint" th:text="|선택한 프로파일(${sp?.alias})이 허용하는 알고리즘의 키만 보여요. 프로파일을 바꾸면 팝업이 다시 로딩되어 목록이 바로 바뀝니다.|"
+                            <div class="hint"
+                                 th:text="|선택한 프로파일(${sp?.alias})이 허용하는 알고리즘의 키만 보여요. 프로파일을 바꾸면 팝업이 다시 로딩되어 목록이 바로 바뀝니다.|"
                                  th:unless="${#lists.isEmpty(keyOptions)}">
                                 선택한 프로파일이 허용하는 알고리즘의 키만 보여요.
                             </div>
@@ -255,15 +265,18 @@
                         <h2 class="card-title">4. Subject</h2>
                         <div class="grid-4">
                             <div class="field span-2">
-                                <label class="lbl" for="subjectDn.domainComponent">DC <span aria-hidden="true" class="req" th:if="${reqDc}">*</span></label>
+                                <label class="lbl" for="subjectDn.domainComponent">DC <span aria-hidden="true"
+                                                                                            class="req"
+                                                                                            th:if="${reqDc}">*</span></label>
                                 <input class="f" data-dn-part="DC" id="subjectDn.domainComponent"
-                                       name="subjectDn.domainComponent" placeholder="example" th:required="${reqDc}"
-                                       th:classappend="${#fields.hasErrors('subjectDn.domainComponent')} ? 'is-invalid'"
-                                       th:data-fixed="${fixedDc}" th:readonly="${fixedDc != null}"
+                                       name="subjectDn.domainComponent" placeholder="example" th:classappend="${#fields.hasErrors('subjectDn.domainComponent')} ? 'is-invalid'"
+                                       th:data-fixed="${fixedDc}"
+                                       th:readonly="${fixedDc != null}" th:required="${reqDc}"
                                        th:value="${fixedDc} ?: *{subjectDn?.domainComponent}" type="text">
                                 <div class="hint" th:if="${fixedDc != null}">프로파일 고정값이에요.</div>
                                 <div class="err" th:errors="*{subjectDn.domainComponent}"
-                                     th:if="${#fields.hasErrors('subjectDn.domainComponent')}">DC 오류</div>
+                                     th:if="${#fields.hasErrors('subjectDn.domainComponent')}">DC 오류
+                                </div>
                             </div>
                             <div class="field span-2">
                                 <label class="lbl" for="subjectDn.commonName">Common Name (CN) <span aria-hidden="true"
@@ -281,12 +294,13 @@
                                 </div>
                             </div>
                             <div class="field">
-                                <label class="lbl" for="subjectDn.organization">O <span aria-hidden="true" class="req" th:if="${reqO}">*</span></label>
+                                <label class="lbl" for="subjectDn.organization">O <span aria-hidden="true" class="req"
+                                                                                        th:if="${reqO}">*</span></label>
                                 <input class="f" data-dn-part="O" id="subjectDn.organization" maxlength="64"
                                        name="subjectDn.organization"
-                                       placeholder="[조직명]" th:required="${reqO}"
-                                       th:classappend="${#fields.hasErrors('subjectDn.organization')} ? 'is-invalid'"
-                                       th:data-fixed="${fixedO}" th:readonly="${fixedO != null}"
+                                       placeholder="[조직명]" th:classappend="${#fields.hasErrors('subjectDn.organization')} ? 'is-invalid'"
+                                       th:data-fixed="${fixedO}"
+                                       th:readonly="${fixedO != null}" th:required="${reqO}"
                                        th:value="${fixedO} ?: *{subjectDn?.organization}" type="text">
                                 <div class="hint" th:if="${fixedO != null}">프로파일 고정값이에요.</div>
                                 <div class="err" th:errors="*{subjectDn.organization}"
@@ -295,12 +309,13 @@
                                 </div>
                             </div>
                             <div class="field">
-                                <label class="lbl" for="subjectDn.country">C <span aria-hidden="true" class="req" th:if="${reqC}">*</span></label>
+                                <label class="lbl" for="subjectDn.country">C <span aria-hidden="true" class="req"
+                                                                                   th:if="${reqC}">*</span></label>
                                 <!--/* 기본값 KR — th:field 는 value 를 덮어쓰므로 name/value 를 직접 둔다 */-->
                                 <input class="f" data-dn-part="C" id="subjectDn.country" maxlength="2"
-                                       name="subjectDn.country" placeholder="KR" th:required="${reqC}"
-                                       th:classappend="${#fields.hasErrors('subjectDn.country')} ? 'is-invalid'"
-                                       th:data-fixed="${fixedC}" th:readonly="${fixedC != null}"
+                                       name="subjectDn.country" placeholder="KR" th:classappend="${#fields.hasErrors('subjectDn.country')} ? 'is-invalid'"
+                                       th:data-fixed="${fixedC}"
+                                       th:readonly="${fixedC != null}" th:required="${reqC}"
                                        th:value="${fixedC} ?: (*{subjectDn?.country} ?: 'KR')" type="text">
                                 <div class="hint" th:if="${fixedC != null}">프로파일 고정값이에요.</div>
                                 <div class="err" th:errors="*{subjectDn.country}"
@@ -308,12 +323,14 @@
                                 </div>
                             </div>
                             <div class="field span-2">
-                                <label class="lbl" for="subjectDn.organizationUnit">OU <span aria-hidden="true" class="req" th:if="${reqOu}">*</span></label>
+                                <label class="lbl" for="subjectDn.organizationUnit">OU <span aria-hidden="true"
+                                                                                             class="req"
+                                                                                             th:if="${reqOu}">*</span></label>
                                 <input class="f" data-dn-part="OU" id="subjectDn.organizationUnit" maxlength="128"
                                        name="subjectDn.organizationUnit"
-                                       placeholder="[부서명]" th:required="${reqOu}"
-                                       th:classappend="${#fields.hasErrors('subjectDn.organizationUnit')} ? 'is-invalid'"
-                                       th:data-fixed="${fixedOu}" th:readonly="${fixedOu != null}"
+                                       placeholder="[부서명]" th:classappend="${#fields.hasErrors('subjectDn.organizationUnit')} ? 'is-invalid'"
+                                       th:data-fixed="${fixedOu}"
+                                       th:readonly="${fixedOu != null}" th:required="${reqOu}"
                                        th:value="${fixedOu} ?: *{subjectDn?.organizationUnit}" type="text">
                                 <div class="hint" th:if="${fixedOu != null}">프로파일 고정값이에요.</div>
                                 <div class="err" th:errors="*{subjectDn.organizationUnit}"
@@ -322,24 +339,34 @@
                             </div>
                         </div>
                     </section>
-                    <section class="card" th:if="${sp?.sanPolicy != null and (sp.sanPolicy.required() or !sp.sanPolicy.allowedTypes().isEmpty())}">
+                    <section class="card"
+                             th:if="${sp?.sanPolicy != null and (sp.sanPolicy.required() or !sp.sanPolicy.allowedTypes().isEmpty())}">
                         <h2 class="card-title">5. 주체 대체 이름 (SAN)</h2>
-                        <p class="hint" id="san-hint" th:text="${sp.sanPolicy.required()} ? '한 개 이상 입력하세요. 항목마다 한 줄에 하나씩 입력합니다.' : '필요한 항목만 한 줄에 하나씩 입력하세요.'"></p>
-                        <div class="field" th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).DNS_NAME)}">
+                        <p class="hint" id="san-hint"
+                           th:text="${sp.sanPolicy.required()} ? '한 개 이상 입력하세요. 항목마다 한 줄에 하나씩 입력합니다.' : '필요한 항목만 한 줄에 하나씩 입력하세요.'"></p>
+                        <div class="field"
+                             th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).DNS_NAME)}">
                             <label class="lbl" for="sanDnsNames">DNS 이름</label>
-                            <textarea class="f mono" rows="3" maxlength="8192" aria-describedby="san-hint" placeholder="service.example.com" th:field="*{sanDnsNames}"></textarea>
+                            <textarea aria-describedby="san-hint" class="f mono" maxlength="8192" placeholder="service.example.com"
+                                      rows="3" th:field="*{sanDnsNames}"></textarea>
                         </div>
-                        <div class="field" th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).IP_ADDRESS)}">
+                        <div class="field"
+                             th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).IP_ADDRESS)}">
                             <label class="lbl" for="sanIpAddresses">IP 주소</label>
-                            <textarea class="f mono" rows="3" maxlength="8192" aria-describedby="san-hint" placeholder="192.0.2.1" th:field="*{sanIpAddresses}"></textarea>
+                            <textarea aria-describedby="san-hint" class="f mono" maxlength="8192" placeholder="192.0.2.1"
+                                      rows="3" th:field="*{sanIpAddresses}"></textarea>
                         </div>
-                        <div class="field" th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).EMAIL_ADDRESS)}">
+                        <div class="field"
+                             th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).EMAIL_ADDRESS)}">
                             <label class="lbl" for="sanEmailAddresses">이메일 주소</label>
-                            <textarea class="f mono" rows="3" maxlength="8192" aria-describedby="san-hint" placeholder="admin@example.com" th:field="*{sanEmailAddresses}"></textarea>
+                            <textarea aria-describedby="san-hint" class="f mono" maxlength="8192" placeholder="admin@example.com"
+                                      rows="3" th:field="*{sanEmailAddresses}"></textarea>
                         </div>
-                        <div class="field" th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).URI)}">
+                        <div class="field"
+                             th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).URI)}">
                             <label class="lbl" for="sanUris">URI</label>
-                            <textarea class="f mono" rows="3" maxlength="8192" aria-describedby="san-hint" placeholder="https://example.com/service" th:field="*{sanUris}"></textarea>
+                            <textarea aria-describedby="san-hint" class="f mono" maxlength="8192" placeholder="https://example.com/service"
+                                      rows="3" th:field="*{sanUris}"></textarea>
                         </div>
                     </section>
                 </div>
@@ -383,7 +410,9 @@
                             <div class="hint" style="font-weight: 600">발급될 인증서 (예상)</div>
                             <dl class="dl dl-preview">
                                 <dt>종류</dt>
-                                <dd class="mono" th:text="${sp != null} ? |${typeLabel} · ${sp.alias ?: sp.id.value()}| : '—'">일반 인증서 ·
+                                <dd class="mono"
+                                    th:text="${sp != null} ? |${typeLabel} · ${sp.alias ?: sp.id.value()}| : '—'">일반 인증서
+                                    ·
                                     TLS 서버
                                 </dd>
                                 <dt>Subject</dt>
@@ -406,7 +435,8 @@
                                     th:text="|${newAlg != null ? newAlg.name() : '(알고리즘)'} · 새 키|">
                                     P256 · 새 키
                                 </dd>
-                                <dd class="mono" th:text="${selKey != null} ? |${selKey.keyAlgorithmPreset} · ${selKey.alias ?: selKey.keyId.value()}| : '(키 선택)'"
+                                <dd class="mono"
+                                    th:text="${selKey != null} ? |${selKey.keyAlgorithmPreset} · ${selKey.alias ?: selKey.keyId.value()}| : '(키 선택)'"
                                     th:unless="${isNewKey}">
                                     (키 선택)
                                 </dd>
@@ -434,8 +464,10 @@
                                 바꾸면 다시 로딩되며 갱신됩니다. 시리얼·지문은 발급 후에 정해집니다.
                             </div>
                         </div>
-                        <button class="btn btn-primary btn-lg btn-block" id="issueSubmit" type="submit"
-                                th:disabled="${sp == null or (!isRootCa and #lists.isEmpty(issuerList)) or (isNewKey ? newKeyAlgorithms.isEmpty() : #lists.isEmpty(keyOptions))}">인증서 발급</button>
+                        <button class="btn btn-primary btn-lg btn-block" id="issueSubmit" th:disabled="${sp == null or (!isRootCa and #lists.isEmpty(issuerList)) or (isNewKey ? newKeyAlgorithms.isEmpty() : #lists.isEmpty(keyOptions))}"
+                                type="submit">
+                            인증서 발급
+                        </button>
                         <a class="btn btn-outline btn-md btn-block" th:href="@{/pki/certificates}">취소</a>
                     </section>
                 </aside>

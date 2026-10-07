@@ -41,7 +41,9 @@ class CertificateIssuanceTest extends CertificateServiceTestSupport {
     @EnumSource(value = CertificateSignatureAlgorithm.class, names = "UNKNOWN", mode = EnumSource.Mode.EXCLUDE)
     void signsCrlAndOcspWithTheCaPublicKeyAlgorithm(CertificateSignatureAlgorithm algorithm) throws Exception {
         SubjectKeySpec spec = algorithm.name().startsWith("RSA_") ? SubjectKeySpec.RSA_2048
-            : algorithm.name().startsWith("ECDSA_") ? SubjectKeySpec.EC_P384 : SubjectKeySpec.valueOf(algorithm.name());
+                                                                  : algorithm.name().startsWith("ECDSA_")
+                                                                    ? SubjectKeySpec.EC_P384
+                                                                    : SubjectKeySpec.valueOf(algorithm.name());
         KeyId key = key(spec);
         CertificateProfile profile = profile(CertificateType.ROOT_CA, spec, algorithm, 30, 1);
         profile.setKeyUsages(Set.of(KeyUsage.KEY_CERT_SIGN, KeyUsage.CRL_SIGN));
@@ -58,8 +60,9 @@ class CertificateIssuanceTest extends CertificateServiceTestSupport {
     @EnumSource(value = CertificateSignatureAlgorithm.class, names = "UNKNOWN", mode = EnumSource.Mode.EXCLUDE)
     void issuesAndVerifiesRootForEverySupportedSignature(CertificateSignatureAlgorithm algorithm) throws Exception {
         SubjectKeySpec spec = algorithm.name().startsWith("RSA_") ? SubjectKeySpec.RSA_2048
-            : algorithm.name().startsWith("ECDSA_") ? SubjectKeySpec.EC_P256
-            : SubjectKeySpec.valueOf(algorithm.name());
+                                                                  : algorithm.name().startsWith("ECDSA_")
+                                                                    ? SubjectKeySpec.EC_P256
+                                                                    : SubjectKeySpec.valueOf(algorithm.name());
         KeyId key = key(spec);
         CertificateProfile profile = profile(CertificateType.ROOT_CA, spec, algorithm, 30, 1);
         CertificateId id = service.issue(request(profile, key, null, null, Set.of()));
@@ -74,7 +77,8 @@ class CertificateIssuanceTest extends CertificateServiceTestSupport {
         assertThat(certificate.getSerialNumber().signum()).isPositive();
         assertThat(certificate.getSerialNumber().toByteArray().length).isLessThanOrEqualTo(20);
         assertThat(certificate.getSubjectX500Principal()).isEqualTo(certificate.getIssuerX500Principal());
-        assertThat(certificate.getSubjectX500Principal().getName()).contains("O=Fixed Organization", "CN=Test Certificate", "C=KR");
+        assertThat(certificate.getSubjectX500Principal()
+                              .getName()).contains("O=Fixed Organization", "CN=Test Certificate", "C=KR");
         assertThat(certificate.getNotBefore().toInstant()).isEqualTo(start);
         assertThat(certificate.getNotAfter().toInstant()).isEqualTo(start.plus(30, ChronoUnit.DAYS));
         assertThat(certificate.getPublicKey().getEncoded()).isEqualTo(keys.get(key).getPublic().getEncoded());
@@ -190,10 +194,11 @@ class CertificateIssuanceTest extends CertificateServiceTestSupport {
 
     private byte[] authorityKeyId(X509Certificate certificate) {
         return AuthorityKeyIdentifier.getInstance(ASN1OctetString.getInstance(
-            certificate.getExtensionValue(Extension.authorityKeyIdentifier.getId())).getOctets()).getKeyIdentifier();
+            certificate.getExtensionValue(Extension.authorityKeyIdentifier.getId())).getOctets()).getKeyIdentifierOctets();
     }
 
     private void assertRejected(IssueCertificateCommand request, String reason) {
-        assertThatThrownBy(() -> service.issue(request)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining(reason);
+        assertThatThrownBy(() -> service.issue(request)).isInstanceOf(IllegalArgumentException.class)
+                                                        .hasMessageContaining(reason);
     }
 }

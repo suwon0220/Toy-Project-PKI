@@ -1,6 +1,6 @@
 package toy.pki.ca.domain.certificate;
 
-public record CertificateId (
+public record CertificateId(
     String id
 ) {
 

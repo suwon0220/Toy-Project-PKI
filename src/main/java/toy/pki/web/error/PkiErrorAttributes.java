@@ -50,8 +50,8 @@ public class PkiErrorAttributes extends DefaultErrorAttributes {
         String traceId = HexFormat.of().toHexDigits(ThreadLocalRandom.current().nextLong());
 
         HttpServletRequest request = webRequest instanceof NativeWebRequest nativeRequest
-            ? nativeRequest.getNativeRequest(HttpServletRequest.class)
-            : null;
+                                     ? nativeRequest.getNativeRequest(HttpServletRequest.class)
+                                     : null;
         String path = (String) attributes.get("path");
         Object query = webRequest.getAttribute(ERROR_QUERY_STRING, RequestAttributes.SCOPE_REQUEST);
         if (path != null && query != null) {
@@ -99,18 +99,18 @@ public class PkiErrorAttributes extends DefaultErrorAttributes {
     private List<String> details(Throwable error, Locale locale) {
         if (error instanceof MethodArgumentTypeMismatchException e) {
             return List.of(messageSource.getMessage("error.detail.field",
-                new Object[] { e.getName(), e.getValue(), expected(e.getRequiredType(), locale) }, locale));
+                new Object[]{e.getName(), e.getValue(), expected(e.getRequiredType(), locale)}, locale));
         }
         if (error instanceof MissingServletRequestParameterException e) {
             return List.of(messageSource.getMessage("error.detail.required",
-                new Object[] { e.getParameterName() }, locale));
+                new Object[]{e.getParameterName()}, locale));
         }
         if (error instanceof BindingResult result) {
             List<String> details = new ArrayList<>();
             for (FieldError fieldError : result.getFieldErrors()) {
                 details.add(messageSource.getMessage("error.detail.field",
-                    new Object[] { fieldError.getField(), fieldError.getRejectedValue(),
-                        messageSource.getMessage(fieldError, locale) },
+                    new Object[]{fieldError.getField(), fieldError.getRejectedValue(),
+                                 messageSource.getMessage(fieldError, locale)},
                     locale));
             }
             return details;
@@ -124,14 +124,14 @@ public class PkiErrorAttributes extends DefaultErrorAttributes {
         }
         if (type.isEnum()) {
             String constants = Arrays.stream(type.getEnumConstants())
-                .map(Object::toString)
-                .collect(Collectors.joining(", "));
-            return messageSource.getMessage("error.expected.enum", new Object[] { constants }, locale);
+                                     .map(Object::toString)
+                                     .collect(Collectors.joining(", "));
+            return messageSource.getMessage("error.expected.enum", new Object[]{constants}, locale);
         }
         if (Number.class.isAssignableFrom(type) || (type.isPrimitive() && type != boolean.class)) {
             return messageSource.getMessage("error.expected.number", null, locale);
         }
-        return messageSource.getMessage("error.expected.type", new Object[] { type.getSimpleName() }, locale);
+        return messageSource.getMessage("error.expected.type", new Object[]{type.getSimpleName()}, locale);
     }
 
     /** 같은 호스트에서 온 Referer 만 되돌아갈 주소로 쓴다. */
@@ -159,6 +159,6 @@ public class PkiErrorAttributes extends DefaultErrorAttributes {
             return String.join("\n", lines);
         }
         return String.join("\n", Arrays.copyOf(lines, STACK_TRACE_LINES)) + "\n    "
-            + messageSource.getMessage("error.stackTrace.truncated", new Object[] { STACK_TRACE_LINES }, locale);
+            + messageSource.getMessage("error.stackTrace.truncated", new Object[]{STACK_TRACE_LINES}, locale);
     }
 }

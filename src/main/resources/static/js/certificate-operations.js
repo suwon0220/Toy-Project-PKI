@@ -13,7 +13,9 @@
         }
         if (event.key !== 'Tab') return;
         var items = Array.from(dialog.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), select, textarea, [tabindex="0"]'))
-            .filter(function (item) { return item.getClientRects().length > 0; });
+            .filter(function (item) {
+                return item.getClientRects().length > 0;
+            });
         var first = items[0];
         var last = items[items.length - 1];
         if (event.shiftKey && (document.activeElement === first || document.activeElement === result)) {

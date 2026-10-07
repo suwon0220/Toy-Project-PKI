@@ -14,11 +14,10 @@ import toy.pki.kms.domain.KeyId;
 @RequiredArgsConstructor
 public class MyCertificate {
     private final CertificateId id;
-    private String alias;
-    private String description;
-
     private final ProfileId profileId;
     private final Certificate certificate;
+    private String alias;
+    private String description;
     private KeyId subjectKeyId;
     private CertificateId issuerCertificateId;
     private CertificateStatus status = CertificateStatus.ACTIVE;
@@ -29,17 +28,25 @@ public class MyCertificate {
     }
 
     public void expire() {
-        if (status != CertificateStatus.REVOKED) this.status = CertificateStatus.EXPIRED;
+        if (status != CertificateStatus.REVOKED) {
+            this.status = CertificateStatus.EXPIRED;
+        }
     }
 
     public void suspend() {
-        if (status == CertificateStatus.REVOKED) throw new IllegalStateException("A revoked certificate cannot be suspended");
-        if (revokedAt == null) revokedAt = Instant.now();
+        if (status == CertificateStatus.REVOKED) {
+            throw new IllegalStateException("A revoked certificate cannot be suspended");
+        }
+        if (revokedAt == null) {
+            revokedAt = Instant.now();
+        }
         this.status = CertificateStatus.SUSPENDED;
     }
 
     public synchronized void revoke() {
-        if (revokedAt == null) revokedAt = Instant.now();
+        if (revokedAt == null) {
+            revokedAt = Instant.now();
+        }
         this.status = CertificateStatus.REVOKED;
     }
 }

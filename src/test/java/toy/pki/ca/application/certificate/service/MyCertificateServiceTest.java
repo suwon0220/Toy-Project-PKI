@@ -6,11 +6,11 @@ import static org.mockito.Mockito.mock;
 
 import java.security.cert.Certificate;
 import org.junit.jupiter.api.Test;
-import toy.pki.ca.adapter.persistence.memory.InMemoryMyCertificateRepository;
 import toy.pki.ca.adapter.certificate.bouncycastle.BouncyCastleCertificateIssuer;
-import toy.pki.ca.application.profile.service.CertificateProfileService;
+import toy.pki.ca.adapter.persistence.memory.InMemoryMyCertificateRepository;
 import toy.pki.ca.application.certificate.model.CertificateSearchCriteria;
 import toy.pki.ca.application.certificate.model.CreateMyCertificateCommand;
+import toy.pki.ca.application.profile.service.CertificateProfileService;
 import toy.pki.ca.domain.certificate.CertificateId;
 import toy.pki.ca.domain.certificate.CertificateStatus;
 import toy.pki.ca.domain.profile.ProfileId;
@@ -42,9 +42,9 @@ class MyCertificateServiceTest {
         CertificateId first = service.create(new CreateMyCertificateCommand("Root CA", "Production", profileId, certificate));
         service.create(new CreateMyCertificateCommand(null, null, profileId, certificate));
 
-        for (String keyword : new String[] {first.id(), "  ROOT ca  ", "PRODUCTION"}) {
+        for (String keyword : new String[]{first.id(), "  ROOT ca  ", "PRODUCTION"}) {
             assertThat(service.search(new CertificateSearchCriteria(keyword))).singleElement()
-                .satisfies(found -> assertThat(found.getId()).isEqualTo(first));
+                                                                              .satisfies(found -> assertThat(found.getId()).isEqualTo(first));
         }
         assertThat(service.search(new CertificateSearchCriteria("  "))).hasSize(2);
         assertThat(service.search(new CertificateSearchCriteria(null))).hasSize(2);
@@ -59,7 +59,7 @@ class MyCertificateServiceTest {
         service.delete(first.id());
 
         assertThat(service.findAll()).singleElement()
-            .satisfies(remaining -> assertThat(remaining.getId()).isEqualTo(second));
+                                     .satisfies(remaining -> assertThat(remaining.getId()).isEqualTo(second));
         assertThatThrownBy(() -> service.findById(first.id()))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("Certificate not found: " + first.id());
