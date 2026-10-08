@@ -25,7 +25,6 @@ public class CertificateProfile {
     private final ProfileId id;
     @Size(min = 1, message = "alias는 null이 아닐 경우 비어있을 수 없습니다")
     private String alias;
-    @Size(min = 1, message = "description은 null이 아닐 경우 비어있을 수 없습니다")
     private String description;
     // Status of the certificate profile
     @NotNull private ProfileStatus status;
