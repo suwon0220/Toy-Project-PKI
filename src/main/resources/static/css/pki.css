@@ -1620,6 +1620,10 @@ body:has(.overlay) {
     border-bottom: 1px solid var(--line-soft);
 }
 
+[data-certificate-dialog] .modal-tabs {
+    flex-wrap: wrap;
+}
+
 .modal-tabs a {
     padding: 12px 14px;
     margin-bottom: -1px;

@@ -4,7 +4,7 @@
     if (!overlay) return;
     var dialog = overlay.querySelector('[role="dialog"]');
     var close = overlay.querySelector('[data-dialog-close]');
-    var result = overlay.querySelector('[data-ocsp-result], [data-revoke-error]');
+    var result = overlay.querySelector('[data-validation-result], [data-ocsp-result], [data-revoke-error]');
     (result || close || dialog).focus();
     document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {
@@ -26,20 +26,24 @@
             first.focus();
         }
     });
-    var form = overlay.querySelector('[data-ocsp-form]');
-    if (form) {
+    function bindRequestForm(selector, pendingText) {
+        var form = overlay.querySelector(selector);
+        if (!form) return;
         var button = form.querySelector('button[type="submit"]');
+        var label = button.textContent;
         form.addEventListener('submit', function () {
             button.disabled = true;
-            button.textContent = 'OCSP 응답 확인 중…';
+            button.textContent = pendingText;
             form.setAttribute('aria-busy', 'true');
         });
         window.addEventListener('pageshow', function () {
             button.disabled = false;
-            button.textContent = 'OCSP 요청';
+            button.textContent = label;
             form.removeAttribute('aria-busy');
         });
     }
+    bindRequestForm('[data-ocsp-form]', 'OCSP 응답 확인 중…');
+    bindRequestForm('[data-validation-form]', '체인 검증 중…');
     var revokeForm = overlay.querySelector('[data-revoke-form]');
     if (revokeForm) {
         var revokeButton = revokeForm.querySelector('button[type="submit"]');

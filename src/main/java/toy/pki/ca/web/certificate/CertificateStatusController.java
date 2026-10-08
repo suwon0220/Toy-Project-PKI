@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import toy.pki.ca.adapter.certificate.bouncycastle.BouncyCastleCertificateStatusService;
 import toy.pki.ca.application.certificate.port.MyCertificateRepository;
+import toy.pki.ca.application.certificate.service.CertificateValidationService;
 import toy.pki.ca.domain.certificate.CertificateId;
 
 @Slf4j
@@ -32,6 +33,15 @@ public class CertificateStatusController {
 
     private final BouncyCastleCertificateStatusService statusService;
     private final MyCertificateRepository repository;
+    private final CertificateValidationService certificateValidationService;
+
+    @PostMapping("/certificates/{certificateId}/validate")
+    public String validate(@PathVariable String certificateId, RedirectAttributes redirect) {
+        CertificateId id = requireCertificate(certificateId);
+        redirect.addFlashAttribute("validationCheck", certificateValidationService.validate(id));
+        redirect.addAttribute("op", "validate");
+        return "redirect:/pki/certificates/" + id.id();
+    }
 
     @GetMapping("/certificates/crl")
     public ResponseEntity<byte[]> crl(

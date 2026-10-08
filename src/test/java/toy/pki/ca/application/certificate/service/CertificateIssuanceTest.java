@@ -48,7 +48,8 @@ class CertificateIssuanceTest extends CertificateServiceTestSupport {
         CertificateProfile profile = profile(CertificateType.ROOT_CA, spec, algorithm, 30, 1);
         profile.setKeyUsages(Set.of(KeyUsage.KEY_CERT_SIGN, KeyUsage.CRL_SIGN));
         CertificateId id = service.issue(request(profile, key, null, null, Set.of()));
-        var status = new BouncyCastleCertificateStatusService(certificates, kms);
+        var status = new BouncyCastleCertificateStatusService(certificates, kms,
+            new CertificateValidationService(certificates));
         var crl = status.crl(id);
         crl.verify(keys.get(key).getPublic());
         assertThat(crl.getRevokedCertificates()).isNull();

@@ -18,7 +18,8 @@ import toy.pki.ca.domain.profile.ProfileId;
 class MyCertificateServiceTest {
 
     private final MyCertificateService service = new MyCertificateService(new InMemoryMyCertificateRepository(),
-        mock(CertificateProfileService.class), mock(BouncyCastleCertificateIssuer.class));
+        mock(CertificateProfileService.class), mock(BouncyCastleCertificateIssuer.class),
+        mock(CertificateValidationService.class));
     private final ProfileId profileId = new ProfileId("root-ca-profile");
     private final Certificate certificate = mock(Certificate.class);
 
