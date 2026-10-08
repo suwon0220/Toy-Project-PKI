@@ -27,6 +27,7 @@ public class MyCertificateService {
     private final MyCertificateRepository certificateRepository;
     private final CertificateProfileService profileService;
     private final BouncyCastleCertificateIssuer certificateIssuer;
+    private final CertificateValidationService certificateValidationService;
 
     public CertificateId issue(IssueCertificateCommand request) throws GeneralSecurityException, IOException {
         return issue(request, CertificateSerialNumber.generate());
@@ -41,6 +42,7 @@ public class MyCertificateService {
                 throw new IllegalArgumentException("An issuer certificate is required");
             }
             issuer = findById(request.issuerCertificateId().id());
+            certificateValidationService.requireValidIssuer(issuer.getId());
         }
         MyCertificate certificate = new MyCertificate(new CertificateId(UUID.randomUUID().toString()),
             profile.getId(), certificateIssuer.issue(profile, request, issuer, serial));

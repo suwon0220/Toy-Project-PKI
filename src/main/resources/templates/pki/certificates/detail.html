@@ -21,6 +21,8 @@
                th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='download')}">다운로드</a>
             <a th:attr="aria-current=${detailTab == 'ocsp'} ? 'page'"
                th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='ocsp')}">OCSP 요청</a>
+            <a th:attr="aria-current=${detailTab == 'validate'} ? 'page'"
+               th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='validate')}">유효성 검증</a>
         </nav>
         <div class="modal-body" th:if="${detailTab == 'info'}">
             <div class="alert alert-warn" th:if="${cert.revoked}">
@@ -103,6 +105,30 @@
                           th:text="${cert.pem}"></textarea>
             </div>
         </div>
+        <div class="modal-body" th:if="${detailTab == 'validate'}">
+            <h3 class="card-sub">인증서 체인 검증</h3>
+            <p class="hint">이 인증서부터 저장소의 루트 CA까지 서명, 유효기간, 폐지·효력 정지 상태와 CA 경로 제약을 확인합니다.</p>
+            <form data-validation-form method="post"
+                  th:action="@{/pki/certificates/{id}/validate(id=${cert.id.id()})}">
+                <button class="btn btn-dark" type="submit">체인 유효성 검증</button>
+            </form>
+            <div class="result" data-validation-result role="status" tabindex="-1" th:if="${validationCheck}">
+                <div class="alert" th:classappend="${validationCheck.valid} ? 'alert-ok' : 'alert-err'">
+                    <strong th:text="${validationCheck.valid} ? '관리 체인이 유효합니다.' : '관리 체인이 유효하지 않습니다.'"></strong>
+                </div>
+                <p class="break" th:text="${validationCheck.message}"></p>
+                <dl class="dl">
+                    <dt>검증 시각</dt>
+                    <dd class="mono"
+                        th:text="${#temporals.format(validationCheck.checkedAt, 'yyyy-MM-dd HH:mm:ss z', displayTimeZone)}"></dd>
+                    <th:block th:if="${validationCheck.failedCertificateId != null and #lists.contains(validationCheck.chain, validationCheck.failedCertificateId)}">
+                        <dt>실패 원인</dt>
+                        <dd><a th:href="@{/pki/certificates/{id}(id=${validationCheck.failedCertificateId.id()})}">원인 인증서 보기</a></dd>
+                    </th:block>
+                </dl>
+            </div>
+            <p class="hint">저장소의 자체 서명 루트 CA를 기준으로 검증합니다. 외부 신뢰 저장소, 외부 OCSP·CRL, TLS 호스트명과 사용 목적은 검사하지 않습니다.</p>
+        </div>
         <div class="modal-body" th:if="${detailTab == 'ocsp'}">
             <h3 class="card-sub">상태 조회 (OCSP)</h3>
             <p class="hint">이 CA의 OCSP 응답기에 요청하고, 응답의 대상 인증서·nonce·서명을 검증합니다.</p>
@@ -145,6 +171,7 @@
                 </dl>
             </div>
             <p class="hint">GOOD은 폐기되지 않았다는 뜻입니다. 인증서의 유효기간과 신뢰 체인은 별도로 확인해야 합니다. UNKNOWN은 발급 기록을 확인할 수 없는 상태입니다.</p>
+            <a th:href="@{/pki/certificates/{id}(id=${cert.id.id()}, op='validate')}">상위 CA를 포함한 체인 유효성 검증</a>
         </div>
         <form class="modal-body" data-revoke-form method="post"
               th:action="@{/pki/certificates/{id}/revoke(id=${cert.id.id()})}" th:if="${detailTab == 'revoke' and !cert.revoked}">

@@ -46,6 +46,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import toy.pki.ca.application.certificate.model.OcspCheckResult;
 import toy.pki.ca.application.certificate.port.MyCertificateRepository;
+import toy.pki.ca.application.certificate.service.CertificateValidationService;
 import toy.pki.ca.domain.certificate.CertificateId;
 import toy.pki.ca.domain.certificate.CertificateStatus;
 import toy.pki.ca.domain.certificate.MyCertificate;
@@ -61,6 +62,7 @@ public class BouncyCastleCertificateStatusService {
     private final AtomicLong crlNumber = new AtomicLong(System.currentTimeMillis());
     private final MyCertificateRepository repository;
     private final KeyManagementService kms;
+    private final CertificateValidationService certificateValidationService;
 
     private static X509Certificate x509(MyCertificate certificate) {
         if (!(certificate.getCertificate() instanceof X509Certificate x509)) {
@@ -303,6 +305,7 @@ public class BouncyCastleCertificateStatusService {
     }
 
     private X509Certificate signingCertificate(MyCertificate issuer) {
+        certificateValidationService.requireValidIssuer(issuer.getId());
         X509Certificate ca = x509(issuer);
         if (issuer.getStatus() != CertificateStatus.ACTIVE || issuer.getRevokedAt() != null
             || ca.getBasicConstraints() < 0 || issuer.getSubjectKeyId() == null

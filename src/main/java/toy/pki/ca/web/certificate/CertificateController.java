@@ -81,7 +81,8 @@ public class CertificateController {
         @RequestParam(defaultValue = "info") String op,
         Model model) {
         list(model, filter, page, size, sort);
-        model.addAttribute("detailTab", List.of("info", "download", "ocsp", "revoke").contains(op) ? op : "info");
+        model.addAttribute("detailTab", List.of("info", "download", "ocsp", "validate", "revoke").contains(op)
+            ? op : "info");
         model.addAttribute("crlDialog", "crl".equals(mode));
         if (certificateId != null) {
             model.addAttribute("cert", view(find(certificateId)));
