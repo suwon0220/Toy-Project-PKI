@@ -86,6 +86,20 @@ public class KeyWebController {
         return "redirect:/pki/kms";
     }
 
+    @PostMapping("/keys/{keyId}/delete")
+    public String delete(
+        @PathVariable KeyId keyId,
+        @RequestParam String confirmKeyId,
+        RedirectAttributes redirectAttributes) {
+        if (!keyId.value().equals(confirmKeyId.strip())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "키 ID 확인값이 일치하지 않습니다");
+        }
+
+        keyManagementService.delete(keyId);
+        redirectAttributes.addFlashAttribute("flashSuccess", "키를 삭제했습니다.");
+        return "redirect:/pki/kms";
+    }
+
     @PostMapping("keys/{keyId}/sign")
     public String sign(
         @PathVariable KeyId keyId,
