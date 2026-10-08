@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<!--/*
+  오류 페이지 — BasicErrorController 가 상태 코드에 관계없이 이 뷰를 렌더링한다.
+  Model(PkiErrorAttributes): status(int), error(String, reason phrase), errorTitle, message,
+         details(List<String>, 400 입력값 오류), method, path, timestamp(Date), traceId,
+         exception(String, dev 프로필 · 5xx 에서만), backUrl(String, 같은 호스트의 Referer)
+*/-->
+<html lang="ko" th:replace="~{pki/fragments/layout :: shell('오류', ~{::main}, null)}"
+      xmlns:th="http://www.thymeleaf.org">
+<body>
+<main class="stack">
+
+    <div class="page-head">
+        <div class="crumbs">PKI / 오류</div>
+    </div>
+
+    <section aria-labelledby="err-title" class="err-card" role="alert"
+             th:classappend="${status >= 500} ? 'err-card-server'">
+        <div class="err-body">
+            <div class="err-head">
+                <div class="err-code" th:text="${status}">404</div>
+                <div class="err-text">
+                    <div class="err-reason" th:text="|${status} ${error}|">404 Not Found</div>
+                    <h1 class="err-title" id="err-title" th:text="${errorTitle}">페이지를 찾을 수 없어요</h1>
+                    <p class="err-message" th:text="${message}">주소가 잘못됐거나, 이미 삭제된 인증서·프로파일·키일 수 있어요.</p>
+                </div>
+            </div>
+
+            <div class="err-details" th:unless="${#lists.isEmpty(details)}">
+                <div class="err-details-label">확인할 값</div>
+                <div class="err-details-list">
+                    <div class="mono" th:each="d : ${details}" th:text="${d}">profileId = 'abc' — 숫자여야 해요</div>
+                </div>
+            </div>
+
+            <dl class="dl err-meta">
+                <dt>요청</dt>
+                <dd class="mono" th:text="|${method} ${path}|">GET /pki/certificates/52e1ab88c0f799</dd>
+                <dt>시각</dt>
+                <dd th:text="${#dates.format(timestamp, 'yyyy-MM-dd HH:mm:ss')}">2026-10-06 14:05:12</dd>
+                <dt>요청 ID</dt>
+                <dd class="err-trace">
+                    <span class="err-trace-id mono" th:text="${traceId}">7f3c9a1e2b4d4a10</span>
+                    <span class="hint"
+                          th:text="${status >= 500} ? '관리자는 이 ID로 서버 로그를 바로 찾을 수 있어요.' : '문제가 계속되면 이 ID를 알려 주세요.'">문제가 계속되면 이 ID를 알려 주세요.</span>
+                </dd>
+            </dl>
+
+            <div class="err-exception" th:if="${exception}">
+                <div class="err-exception-head">
+                    <span class="err-exception-title">예외 상세</span>
+                    <span class="badge b-danger">dev 프로필에서만 표시</span>
+                </div>
+                <pre class="pre" th:text="${exception}">java.lang.IllegalStateException: ...</pre>
+            </div>
+
+            <div class="actions err-actions">
+                <a class="btn btn-md btn-outline" th:href="${backUrl}" th:if="${backUrl}">이전 화면</a>
+                <a class="btn btn-md btn-primary" th:href="@{/pki/certificates}">인증서 관리로</a>
+            </div>
+        </div>
+    </section>
+</main>
+</body>
+</html>

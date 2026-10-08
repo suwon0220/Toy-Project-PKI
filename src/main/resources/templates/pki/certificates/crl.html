@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div class="overlay" data-certificate-dialog th:fragment="dialog">
+    <section aria-labelledby="crl-title" aria-modal="true" class="modal" role="dialog" tabindex="-1">
+        <div class="modal-head">
+            <h2 class="modal-title" id="crl-title">CRL 다운로드</h2>
+            <a aria-label="CRL 다운로드 닫기" class="modal-close" data-dialog-close th:href="@{/pki/certificates}">
+                <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-width="2"
+                     viewBox="0 0 24 24" width="20">
+                    <path d="M6 6l12 12M6 18L18 6"></path>
+                </svg>
+            </a>
+        </div>
+        <form class="modal-body" method="get" th:action="@{/pki/certificates/crl}"
+              th:unless="${#lists.isEmpty(crlIssuers)}">
+            <p class="hint">선택한 CA가 직접 발급한 인증서의 폐기·보류 목록을 서명하여 내려받습니다.</p>
+            <div class="field field-sm">
+                <label class="lbl" for="crl-issuer">발급 CA</label>
+                <select class="f" id="crl-issuer" name="issuerId" required>
+                    <option th:each="issuer : ${crlIssuers}" th:text="${issuer.title}"
+                            th:value="${issuer.id.id()}"></option>
+                </select>
+            </div>
+            <div class="field field-sm">
+                <label class="lbl" for="crl-format">파일 형식</label>
+                <select class="f" id="crl-format" name="format">
+                    <option value="DER">DER — CRL (.crl)</option>
+                    <option value="PEM">PEM — CRL (.pem)</option>
+                </select>
+            </div>
+            <div class="actions">
+                <button class="btn btn-dark" type="submit">CRL 다운로드</button>
+            </div>
+        </form>
+        <div class="modal-body" th:if="${#lists.isEmpty(crlIssuers)}">
+            <p>CRL을 발행할 수 있는 CA 인증서가 없습니다.</p>
+            <p class="hint">유효한 CA 인증서에 CRL_SIGN 용도와 KMS 서명 키가 필요합니다.</p>
+            <div class="actions"><a class="btn btn-outline" th:href="@{/pki/certificates}">목록으로</a></div>
+        </div>
+    </section>
+    <script defer th:src="@{/js/certificate-operations.js}"></script>
+</div>
+</body>
+</html>

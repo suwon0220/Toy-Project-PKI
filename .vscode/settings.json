@@ -1,0 +1,19 @@
+{
+  "java.compile.nullAnalysis.mode": "automatic",
+  "java.configuration.updateBuildConfiguration": "interactive",
+  "java.format.enabled": true,
+  "java.format.settings.url": "config/formatter/eclipse-java-autocrypt-style.xml",
+  "java.format.settings.profile": "AutocryptStyle",
+  "java.completion.importOrder": [
+    "#",
+    ""
+  ],
+  "java.sources.organizeImports.starThreshold": 999,
+  "java.sources.organizeImports.staticStarThreshold": 999,
+  "[java]": {
+    "editor.defaultFormatter": "redhat.java",
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+    "editor.detectIndentation": false
+  }
+}

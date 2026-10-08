@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<!--/*
+  인증서 발급 팝업 조각 — pki/certificates/list 가 certificateIssueForm 이 있을 때 th:replace 로 넣는다.
+  GET  /pki/certificates?mode=issue&profileId=&keyMode=NEW|EXISTING&issuerCertificateId=
+  POST /pki/certificates/issue  → 검증 실패 시 pki/certificates/list 를 팝업이 열린 채로 반환
+  Model: certificateIssueForm(CertificateIssueForm), profiles(List<CertificateProfile>),
+         keyAlgorithmPresets(KeyAlgorithmPreset[]),
+         issuerCerts(List<CertificateView>, 선택), kmsKeys(List<ManagedKey>, 선택).
+
+  카드 순서: 1. 인증서 프로파일 → 2. 발급 CA → 3. 키 (KMS) → 4. Subject → 5. SAN (프로파일 허용 시).
+  - 선택 프로파일 = profileId 와 같은 프로파일, 없으면 profiles 의 첫 항목.
+  - ACTIVE 프로파일만 표시한다. certificateType(ROOT_CA · INTERMEDIATE_CA · END_ENTITY)은 인증서 종류이며,
+    ROOT_CA 는 자체 서명하므로 발급 CA 선택이 비활성화된다.
+  - 키 탭(keyMode): NEW = 새 KMS 키 생성(subjectKeySpec, 별칭은 cert-<시리얼>), EXISTING = 기존 KMS 키 선택(kmsKeyId).
+    키 목록·알고리즘은 선택 프로파일이 허용하는 것만.
+  - 프로파일을 바꾸면 숨은 #profileReload 버튼(GET)으로 다시 로딩한다.
+  - 미리보기의 Subject·Issuer 는 아래 인라인 스크립트가 입력 즉시 갱신한다 (표시용 — 실제 DN 은 서버가 다시 계산).
+*/-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div class="overlay overlay-wide" th:fragment="dialog"
+     th:with="f=${certificateIssueForm},
+              profileList=${(profiles ?: {}).?[status != null and status.name() == 'ACTIVE']},
+              pid=${f.profileId?.value()},
+              pickedProfile=${pid != null} ? ${profileList.^[id.value() == #vars.pid]} : null,
+              sp=${pickedProfile} ?: (${#lists.isEmpty(profileList)} ? null : ${profileList[0]}),
+              isRootCa=${sp?.certificateType != null and sp.certificateType.name() == 'ROOT_CA'},
+              isNewKey=${f.keyMode == null or f.keyMode.name() == 'NEW'},
+              issuerList=${issuerCerts} ?: ${ {} },
+              selectedIssuerId=${isRootCa} ? null : ${f.issuerCertificateId?.id()},
+              allowedNames=${sp?.subjectKeyPolicy?.allowedKeys()?.![name()]},
+              presets=${#lists.toList(keyAlgorithmPresets ?: {})},
+              newKeyAlgorithms=${allowedNames == null} ? ${ {}} : ${presets.?[#vars.allowedNames.contains(name())]},
+              keyOptions=${(kmsKeys ?: {}).?[#vars.newKeyAlgorithms.contains(keyAlgorithmPreset)]},
+              typeLabel=${sp?.certificateType != null} ? ${#messages.msgOrNull('enum.CertificateType.' + sp.certificateType) ?: sp.certificateType.name()} : '—',
+              spIsCa=${sp?.certificateType != null and sp.certificateType.name() != 'END_ENTITY'}">
+    <section aria-labelledby="issue-title" aria-modal="true" class="modal modal-xl" role="dialog">
+        <div class="modal-head modal-head-plain">
+            <h2 class="modal-title" id="issue-title">새 인증서 발급</h2>
+            <span class="grow"></span>
+            <a aria-label="닫기" class="modal-close" th:href="@{/pki/certificates}">
+                <svg aria-hidden="true" fill="none" height="20" stroke="currentColor" stroke-linecap="round"
+                     stroke-width="2" viewBox="0 0 24 24" width="20">
+                    <line x1="6" x2="18" y1="6" y2="18"></line>
+                    <line x1="18" x2="6" y1="6" y2="18"></line>
+                </svg>
+            </a>
+        </div>
+
+        <form class="modal-body" id="issue-form" method="post" th:action="@{/pki/certificates/issue}"
+              th:object="${certificateIssueForm}">
+            <!--/* 프로파일 재로딩(GET)에도 팝업이 열리도록 mode 를 같이 보낸다 */-->
+            <input name="mode" type="hidden" value="issue">
+            <input name="keyMode" th:value="${isNewKey} ? 'NEW' : 'EXISTING'" type="hidden">
+
+            <div class="alert alert-err" id="issue-errors" role="alert" tabindex="-1" th:if="${#fields.hasAnyErrors()}">
+                <div><strong>입력값을 확인해 주세요.</strong>
+                    <ul>
+                        <li th:each="error : ${#fields.allErrors()}" th:text="${error}"></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="with-aside">
+                <div class="stack" style="gap: 16px">
+
+                    <!-- 1. 인증서 프로파일 -->
+                    <section class="card">
+                        <h2 class="card-title">1. 인증서 프로파일</h2>
+                        <div class="grid-profile">
+                            <div class="field">
+                                <label class="lbl" for="profileId">인증서 프로파일 <span aria-hidden="true"
+                                                                                  class="req">*</span></label>
+                                <select class="f" id="profileId" name="profileId"
+                                        onchange="this.form.querySelector('#profileReload').click()" required
+                                        th:classappend="${#fields.hasErrors('profileId')} ? 'is-invalid'">
+                                    <option th:if="${#lists.isEmpty(profileList)}" value="">ACTIVE 프로파일 없음</option>
+                                    <option th:each="p : ${profileList}"
+                                            th:selected="${sp != null and p.id == sp.id}"
+                                            th:text="|${p.alias ?: p.id.value()} (${p.certificateType != null ? (#messages.msgOrNull('enum.CertificateType.' + p.certificateType) ?: p.certificateType.name()) : '종류 미지정'})|"
+                                            th:value="${p.id.value()}">TLS 서버 (일반 인증서)
+                                    </option>
+                                </select>
+                                <div class="err" th:errors="*{profileId}" th:if="${#fields.hasErrors('profileId')}">프로파일
+                                    오류
+                                </div>
+                                <div class="hint" th:if="${#lists.isEmpty(profileList)}">
+                                    ACTIVE 프로파일이 없습니다. <a th:href="@{/pki/profiles}">프로파일 화면</a>에서 활성화하세요.
+                                </div>
+                                <div class="hint" th:unless="${#lists.isEmpty(profileList)}">ACTIVE 프로파일만 나와요. 바꾸면
+                                    다시 로딩해 아래 키 알고리즘·키 목록을 이 프로파일 기준으로 거릅니다.
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="validityDays">유효기간(일)</label>
+                                <!--/* 프로파일 기본값은 placeholder 로 표시한다. */-->
+                                <input class="f" id="validityDays" min="1" name="validityDays"
+                                       th:classappend="${#fields.hasErrors('validityDays')} ? 'is-invalid'"
+                                       th:max="${sp?.maxValidityDays}" th:placeholder="${sp?.defaultValidityDays}"
+                                       th:value="*{validityDays}" type="number">
+                                <div class="err" th:errors="*{validityDays}"
+                                     th:if="${#fields.hasErrors('validityDays')}">유효기간 오류
+                                </div>
+                                <div class="hint"
+                                     th:text="|프로파일 기본 ${sp?.defaultValidityDays ?: '-'}일${sp?.maxValidityDays != null ? ' · 상한 ' + sp.maxValidityDays + '일' : ''}|"
+                                     th:unless="${#fields.hasErrors('validityDays')}">
+                                    프로파일 상한 초과 시 거부
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="notBefore">시작 시각 (선택)</label>
+                                <input class="f" id="notBefore" name="notBefore"
+                                       th:classappend="${#fields.hasErrors('notBefore')} ? 'is-invalid'"
+                                       th:value="${f.notBefore != null} ? ${#temporals.format(f.notBefore, 'yyyy-MM-dd''T''HH:mm')} : ''"
+                                       type="datetime-local">
+                                <div class="err" th:errors="*{notBefore}" th:if="${#fields.hasErrors('notBefore')}">시작
+                                    시각 오류
+                                </div>
+                                <div class="hint" th:text="|${displayTimeZone} 기준 · 비우면 발급 시각|"
+                                     th:unless="${#fields.hasErrors('notBefore')}">비우면 발급 시각
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="signatureAlgorithm">서명 알고리즘</label>
+                                <select class="f" th:field="*{signatureAlgorithm}">
+                                    <option value="">자동 선택</option>
+                                    <option th:each="algorithm : ${sp?.allowedSignatures}"
+                                            th:if="${algorithm.name() != 'UNKNOWN'}"
+                                            th:text="${algorithm.jcaName}" th:value="${algorithm}"></option>
+                                </select>
+                                <div class="hint">프로파일과 발급자 키에 맞는 알고리즘을 사용합니다.</div>
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="alias">인증서 별칭 (선택)</label>
+                                <input class="f" maxlength="128" th:field="*{alias}" type="text">
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="description">설명 (선택)</label>
+                                <input class="f" maxlength="1000" th:field="*{description}" type="text">
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 2. 발급 CA -->
+                    <section class="card">
+                        <h2 class="card-title">2. 발급 CA</h2>
+                        <div class="field">
+                            <label class="lbl" for="issuerCertificateId">발급 CA <span aria-hidden="true"
+                                                                                     class="req"
+                                                                                     th:unless="${isRootCa}">*</span></label>
+                            <select aria-describedby="issuer-hint" class="f" id="issuerCertificateId"
+                                    name="issuerCertificateId" th:classappend="${#fields.hasErrors('issuerCertificateId')} ? 'is-invalid'"
+                                    th:disabled="${isRootCa}"
+                                    th:required="${!isRootCa}">
+                                <option th:text="${isRootCa} ? '자체 서명 (발급 CA 불필요)' : (${#lists.isEmpty(issuerList)} ? '발급 가능한 CA 인증서 없음' : '선택하세요')"
+                                        value="">
+                                    선택하세요
+                                </option>
+                                <option th:data-dn="${dn}"
+                                        th:each="ca : ${issuerList}"
+                                        th:selected="${!isRootCa and ca.id.id() == selectedIssuerId}"
+                                        th:text="${ca.title}"
+                                        th:value="${ca.id.id()}"
+                                        th:with="s=${ca.subject},
+                                                 dn=${#strings.listJoin({#strings.isEmpty(s.domainComponent()) ? null : 'DC=' + s.domainComponent(),
+                                                                        #strings.isEmpty(s.commonName()) ? null : 'CN=' + s.commonName(),
+                                                                        #strings.isEmpty(s.organizationUnit()) ? null : 'OU=' + s.organizationUnit(),
+                                                                        #strings.isEmpty(s.organization()) ? null : 'O=' + s.organization(),
+                                                                        #strings.isEmpty(s.country()) ? null : 'C=' + s.country()}.?[#this != null], ', ')}">Issuing CA — TLS
+                                </option>
+                            </select>
+                            <div class="hint" id="issuer-hint" th:if="${isRootCa}">
+                                Root CA는 자신의 키로 서명하므로 발급 CA를 선택하지 않습니다.
+                            </div>
+                            <div class="err" th:errors="*{issuerCertificateId}"
+                                 th:if="${!isRootCa and #fields.hasErrors('issuerCertificateId')}">CA를 선택하세요.
+                            </div>
+                            <div class="hint" id="issuer-hint"
+                                 th:if="${!isRootCa and !#fields.hasErrors('issuerCertificateId') and #lists.isEmpty(issuerList)}">
+                                선택할 발급 CA 인증서가 없습니다.
+                            </div>
+                            <div class="hint" id="issuer-hint"
+                                 th:if="${!isRootCa and !#fields.hasErrors('issuerCertificateId') and !#lists.isEmpty(issuerList)}">
+                                발급에 사용할 CA 인증서를 선택하세요.
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 키 (KMS): 탭은 GET 링크로 전환 -->
+                    <section class="card">
+                        <div class="card-head">
+                            <h2 class="card-title">3. 키 (KMS)</h2>
+                            <nav aria-label="키" class="seg">
+                                <a th:attr="aria-current=${isNewKey} ? 'true'"
+                                   th:href="@{/pki/certificates(mode='issue', profileId=${sp?.id?.value()}, keyMode='NEW', issuerCertificateId=${selectedIssuerId})}">새
+                                    KMS 키
+                                    생성</a>
+                                <a th:attr="aria-current=${!isNewKey} ? 'true'"
+                                   th:href="@{/pki/certificates(mode='issue', profileId=${sp?.id?.value()}, keyMode='EXISTING', issuerCertificateId=${selectedIssuerId})}">기존
+                                    KMS 키
+                                    선택</a>
+                            </nav>
+                        </div>
+                        <div class="err" th:errors="*{keyMode}" th:if="${#fields.hasErrors('keyMode')}">키 오류</div>
+
+                        <!--/* 새 키: CertificateIssueForm.subjectKeySpec (EXISTING 이면 서버에서 무시) */-->
+                        <div class="grid-2" th:if="${isNewKey}">
+                            <div class="field">
+                                <label class="lbl" for="subjectKeySpec">키 알고리즘 <span aria-hidden="true"
+                                                                                     class="req">*</span></label>
+                                <select class="f" th:errorclass="is-invalid" th:field="*{subjectKeySpec}">
+                                    <option th:if="${newKeyAlgorithms.isEmpty()}" value="">허용 알고리즘 없음</option>
+                                    <option th:each="a : ${newKeyAlgorithms}" th:text="${a.name()}"
+                                            th:value="${a.name()}">EC P-256
+                                    </option>
+                                </select>
+                                <div class="err" th:errors="*{subjectKeySpec}"
+                                     th:if="${#fields.hasErrors('subjectKeySpec')}">키 알고리즘 오류
+                                </div>
+                            </div>
+                            <div class="hint span-2">키 별칭은 cert-&lt;인증서 시리얼&gt;로 자동 생성됩니다. 개인키는 KMS 안에서만 사용됩니다.
+                            </div>
+                        </div>
+
+                        <div class="field" th:unless="${isNewKey}">
+                            <label class="lbl" for="kmsKeyId">KMS 키 <span aria-hidden="true"
+                                                                          class="req">*</span></label>
+                            <select class="f" th:disabled="${#lists.isEmpty(keyOptions)}" th:errorclass="is-invalid"
+                                    th:field="*{kmsKeyId}">
+                                <option th:if="${#lists.isEmpty(keyOptions)}" value="">맞는 키 없음</option>
+                                <option th:each="k : ${keyOptions}"
+                                        th:text="|${k.alias ?: k.keyId.value()} · ${k.keyAlgorithmPreset} · ${#temporals.format(k.createdAt, 'yyyy-MM-dd', 'Asia/Seoul')}|"
+                                        th:value="${k.keyId.value()}">api-tls-server · EC_P256 · 2026-09-14
+                                </option>
+                            </select>
+                            <div class="err" th:errors="*{kmsKeyId}" th:if="${#fields.hasErrors('kmsKeyId')}">KMS 키 오류
+                            </div>
+                            <div class="hint" th:if="${#lists.isEmpty(keyOptions)}">이 프로파일에 맞는 키가 없습니다.
+                                <a th:href="@{/pki/certificates(mode='issue', profileId=${sp?.id?.value()}, keyMode='NEW', issuerCertificateId=${selectedIssuerId})}">새
+                                    KMS 키
+                                    생성</a>으로 발급하거나 <a th:href="@{/pki/kms}">키 관리</a>에서 먼저 만드세요.
+                            </div>
+                            <div class="hint"
+                                 th:text="|선택한 프로파일(${sp?.alias})이 허용하는 알고리즘의 키만 보여요. 프로파일을 바꾸면 팝업이 다시 로딩되어 목록이 바로 바뀝니다.|"
+                                 th:unless="${#lists.isEmpty(keyOptions)}">
+                                선택한 프로파일이 허용하는 알고리즘의 키만 보여요.
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Subject : CertificateIssueForm.subjectDn (SubjectDnForm).
+                         프로파일 dnPolicy 의 fixedValue 가 있는 칸은 그 값으로 채우고 readonly — disabled 는 값이 전송되지 않아 쓰지 않는다.
+                         DN 입력은 DC · CN · OU · O · C 다섯 필드이며 required 인 칸은 필수 표시. -->
+                    <section class="card"
+                             th:with="dn=${sp?.dnPolicy},
+                                      fixedDc=${#strings.isEmpty(dn?.domainComponent?.fixedValue)} ? null : ${dn.domainComponent.fixedValue},
+                                      fixedCn=${#strings.isEmpty(dn?.commonName?.fixedValue)} ? null : ${dn.commonName.fixedValue},
+                                      fixedO=${#strings.isEmpty(dn?.organization?.fixedValue)} ? null : ${dn.organization.fixedValue},
+                                      fixedOu=${#strings.isEmpty(dn?.organizationUnit?.fixedValue)} ? null : ${dn.organizationUnit.fixedValue},
+                                      fixedC=${#strings.isEmpty(dn?.country?.fixedValue)} ? null : ${dn.country.fixedValue},
+                                      reqDc=${dn?.domainComponent?.required == true},
+                                      reqO=${dn?.organization?.required == true},
+                                      reqOu=${dn?.organizationUnit?.required == true},
+                                      reqC=${dn?.country?.required == true}">
+                        <h2 class="card-title">4. Subject</h2>
+                        <div class="grid-4">
+                            <div class="field span-2">
+                                <label class="lbl" for="subjectDn.domainComponent">DC <span aria-hidden="true"
+                                                                                            class="req"
+                                                                                            th:if="${reqDc}">*</span></label>
+                                <input class="f" data-dn-part="DC" id="subjectDn.domainComponent"
+                                       name="subjectDn.domainComponent" placeholder="example" th:classappend="${#fields.hasErrors('subjectDn.domainComponent')} ? 'is-invalid'"
+                                       th:data-fixed="${fixedDc}"
+                                       th:readonly="${fixedDc != null}" th:required="${reqDc}"
+                                       th:value="${fixedDc} ?: *{subjectDn?.domainComponent}" type="text">
+                                <div class="hint" th:if="${fixedDc != null}">프로파일 고정값이에요.</div>
+                                <div class="err" th:errors="*{subjectDn.domainComponent}"
+                                     th:if="${#fields.hasErrors('subjectDn.domainComponent')}">DC 오류
+                                </div>
+                            </div>
+                            <div class="field span-2">
+                                <label class="lbl" for="subjectDn.commonName">Common Name (CN) <span aria-hidden="true"
+                                                                                                     class="req">*</span></label>
+                                <input class="f" data-dn-part="CN" id="subjectDn.commonName" maxlength="64"
+                                       name="subjectDn.commonName"
+                                       placeholder="api.example.com" required
+                                       th:classappend="${#fields.hasErrors('subjectDn.commonName')} ? 'is-invalid'"
+                                       th:data-fixed="${fixedCn}" th:readonly="${fixedCn != null}"
+                                       th:value="${fixedCn} ?: *{subjectDn?.commonName}" type="text">
+                                <div class="hint" th:if="${fixedCn != null}">프로파일 고정값이에요.</div>
+                                <div class="err" th:errors="*{subjectDn.commonName}"
+                                     th:if="${#fields.hasErrors('subjectDn.commonName')}">CN은
+                                    필수입니다. (최대 64자)
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="subjectDn.organization">O <span aria-hidden="true" class="req"
+                                                                                        th:if="${reqO}">*</span></label>
+                                <input class="f" data-dn-part="O" id="subjectDn.organization" maxlength="64"
+                                       name="subjectDn.organization"
+                                       placeholder="[조직명]" th:classappend="${#fields.hasErrors('subjectDn.organization')} ? 'is-invalid'"
+                                       th:data-fixed="${fixedO}"
+                                       th:readonly="${fixedO != null}" th:required="${reqO}"
+                                       th:value="${fixedO} ?: *{subjectDn?.organization}" type="text">
+                                <div class="hint" th:if="${fixedO != null}">프로파일 고정값이에요.</div>
+                                <div class="err" th:errors="*{subjectDn.organization}"
+                                     th:if="${#fields.hasErrors('subjectDn.organization')}">O
+                                    오류
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="lbl" for="subjectDn.country">C <span aria-hidden="true" class="req"
+                                                                                   th:if="${reqC}">*</span></label>
+                                <!--/* 기본값 KR — th:field 는 value 를 덮어쓰므로 name/value 를 직접 둔다 */-->
+                                <input class="f" data-dn-part="C" id="subjectDn.country" maxlength="2"
+                                       name="subjectDn.country" placeholder="KR" th:classappend="${#fields.hasErrors('subjectDn.country')} ? 'is-invalid'"
+                                       th:data-fixed="${fixedC}"
+                                       th:readonly="${fixedC != null}" th:required="${reqC}"
+                                       th:value="${fixedC} ?: (*{subjectDn?.country} ?: 'KR')" type="text">
+                                <div class="hint" th:if="${fixedC != null}">프로파일 고정값이에요.</div>
+                                <div class="err" th:errors="*{subjectDn.country}"
+                                     th:if="${#fields.hasErrors('subjectDn.country')}">C 오류
+                                </div>
+                            </div>
+                            <div class="field span-2">
+                                <label class="lbl" for="subjectDn.organizationUnit">OU <span aria-hidden="true"
+                                                                                             class="req"
+                                                                                             th:if="${reqOu}">*</span></label>
+                                <input class="f" data-dn-part="OU" id="subjectDn.organizationUnit" maxlength="128"
+                                       name="subjectDn.organizationUnit"
+                                       placeholder="[부서명]" th:classappend="${#fields.hasErrors('subjectDn.organizationUnit')} ? 'is-invalid'"
+                                       th:data-fixed="${fixedOu}"
+                                       th:readonly="${fixedOu != null}" th:required="${reqOu}"
+                                       th:value="${fixedOu} ?: *{subjectDn?.organizationUnit}" type="text">
+                                <div class="hint" th:if="${fixedOu != null}">프로파일 고정값이에요.</div>
+                                <div class="err" th:errors="*{subjectDn.organizationUnit}"
+                                     th:if="${#fields.hasErrors('subjectDn.organizationUnit')}">OU 오류
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="card"
+                             th:if="${sp?.sanPolicy != null and (sp.sanPolicy.required() or !sp.sanPolicy.allowedTypes().isEmpty())}">
+                        <h2 class="card-title">5. 주체 대체 이름 (SAN)</h2>
+                        <p class="hint" id="san-hint"
+                           th:text="${sp.sanPolicy.required()} ? '한 개 이상 입력하세요. 항목마다 한 줄에 하나씩 입력합니다.' : '필요한 항목만 한 줄에 하나씩 입력하세요.'"></p>
+                        <div class="field"
+                             th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).DNS_NAME)}">
+                            <label class="lbl" for="sanDnsNames">DNS 이름</label>
+                            <textarea aria-describedby="san-hint" class="f mono" maxlength="8192" placeholder="service.example.com"
+                                      rows="3" th:field="*{sanDnsNames}"></textarea>
+                        </div>
+                        <div class="field"
+                             th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).IP_ADDRESS)}">
+                            <label class="lbl" for="sanIpAddresses">IP 주소</label>
+                            <textarea aria-describedby="san-hint" class="f mono" maxlength="8192" placeholder="192.0.2.1"
+                                      rows="3" th:field="*{sanIpAddresses}"></textarea>
+                        </div>
+                        <div class="field"
+                             th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).EMAIL_ADDRESS)}">
+                            <label class="lbl" for="sanEmailAddresses">이메일 주소</label>
+                            <textarea aria-describedby="san-hint" class="f mono" maxlength="8192" placeholder="admin@example.com"
+                                      rows="3" th:field="*{sanEmailAddresses}"></textarea>
+                        </div>
+                        <div class="field"
+                             th:if="${sp.sanPolicy.allowedTypes().contains(T(toy.pki.ca.domain.profile.SanType).URI)}">
+                            <label class="lbl" for="sanUris">URI</label>
+                            <textarea aria-describedby="san-hint" class="f mono" maxlength="8192" placeholder="https://example.com/service"
+                                      rows="3" th:field="*{sanUris}"></textarea>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- 우측 발급 카드 + 발급될 인증서 (예상) -->
+                <aside class="sticky">
+                    <section class="card"
+                             th:with="sdn=${f.subjectDn},
+                                      dn=${sp?.dnPolicy},
+                                      vDc=${!#strings.isEmpty(dn?.domainComponent?.fixedValue)} ? ${dn.domainComponent.fixedValue} : ${sdn?.domainComponent},
+                                      vCn=${!#strings.isEmpty(dn?.commonName?.fixedValue)} ? ${dn.commonName.fixedValue} : ${sdn?.commonName},
+                                      vOu=${!#strings.isEmpty(dn?.organizationUnit?.fixedValue)} ? ${dn.organizationUnit.fixedValue} : ${sdn?.organizationUnit},
+                                      vO=${!#strings.isEmpty(dn?.organization?.fixedValue)} ? ${dn.organization.fixedValue} : ${sdn?.organization},
+                                      vC=${!#strings.isEmpty(dn?.country?.fixedValue)} ? ${dn.country.fixedValue} : (${!#strings.isEmpty(sdn?.country)} ? ${sdn.country} : 'KR'),
+                                      subjectText=${#strings.listJoin({#strings.isEmpty(vDc) ? null : 'DC=' + vDc,
+                                                                       #strings.isEmpty(vCn) ? null : 'CN=' + vCn,
+                                                                       #strings.isEmpty(vOu) ? null : 'OU=' + vOu,
+                                                                       #strings.isEmpty(vO) ? null : 'O=' + vO,
+                                                                       #strings.isEmpty(vC) ? null : 'C=' + vC}.?[#this != null], ', ')},
+                                      selCa=${selectedIssuerId == null} ? null : ${issuerList.^[id.id() == #vars.selectedIssuerId]},
+                                      caSubject=${selCa?.subject},
+                                      issuerText=${caSubject == null} ? null : ${#strings.listJoin({#strings.isEmpty(caSubject.domainComponent()) ? null : 'DC=' + caSubject.domainComponent(),
+                                                                                                  #strings.isEmpty(caSubject.commonName()) ? null : 'CN=' + caSubject.commonName(),
+                                                                                                  #strings.isEmpty(caSubject.organizationUnit()) ? null : 'OU=' + caSubject.organizationUnit(),
+                                                                                                  #strings.isEmpty(caSubject.organization()) ? null : 'O=' + caSubject.organization(),
+                                                                                                  #strings.isEmpty(caSubject.country()) ? null : 'C=' + caSubject.country()}.?[#this != null], ', ')},
+                                      selKey=${isNewKey or f.kmsKeyId == null} ? null : ${keyOptions.^[keyId.value() == #vars.f.kmsKeyId]},
+                                      newAlg=${f.subjectKeySpec} ?: (${newKeyAlgorithms.isEmpty()} ? null : ${newKeyAlgorithms.iterator().next()}),
+                                      validity=*{validityDays} ?: ${sp?.defaultValidityDays},
+                                      ekus=${sp?.extendedKeyUsages}">
+                        <h2 class="card-title">발급</h2>
+                        <dl class="dl" style="grid-template-columns: 72px minmax(0, 1fr)">
+                            <dt>발급 방식</dt>
+                            <dd style="font-weight: 600" th:text="${isRootCa} ? '자체 서명' : 'CA가 서명'">CA가 서명</dd>
+                            <dt>키</dt>
+                            <dd style="font-weight: 600" th:text="${isNewKey} ? '새 KMS 키 생성' : '기존 KMS 키 선택'">새 KMS 키
+                                생성
+                            </dd>
+                        </dl>
+                        <div class="divided">
+                            <div class="hint" style="font-weight: 600">발급될 인증서 (예상)</div>
+                            <dl class="dl dl-preview">
+                                <dt>종류</dt>
+                                <dd class="mono"
+                                    th:text="${sp != null} ? |${typeLabel} · ${sp.alias ?: sp.id.value()}| : '—'">일반 인증서
+                                    ·
+                                    TLS 서버
+                                </dd>
+                                <dt>Subject</dt>
+                                <dd class="mono" data-preview="subject"
+                                    th:text="${#strings.isEmpty(subjectText)} ? '(CN 입력)' : ${subjectText}">
+                                    CN=api.example.com, O=[조직명], C=KR
+                                </dd>
+                                <dt>Issuer</dt>
+                                <dd class="mono" data-preview="issuer"
+                                    th:text="${isRootCa} ? (${#strings.isEmpty(subjectText)} ? '(CN 입력)' : ${subjectText}) : (${issuerText} ?: '(발급 CA 선택)')">
+                                    (발급 CA 선택)
+                                </dd>
+                                <dt>유효기간</dt>
+                                <dd class="mono"
+                                    th:text="|${f.notBefore != null ? #temporals.format(f.notBefore, 'yyyy-MM-dd HH:mm') : '발급 시각'} ~ +${validity ?: '?'}일|">
+                                    발급 시각 ~ +397일
+                                </dd>
+                                <dt>공개키</dt>
+                                <dd class="mono" th:if="${isNewKey}"
+                                    th:text="|${newAlg != null ? newAlg.name() : '(알고리즘)'} · 새 키|">
+                                    P256 · 새 키
+                                </dd>
+                                <dd class="mono"
+                                    th:text="${selKey != null} ? |${selKey.keyAlgorithmPreset} · ${selKey.alias ?: selKey.keyId.value()}| : '(키 선택)'"
+                                    th:unless="${isNewKey}">
+                                    (키 선택)
+                                </dd>
+                                <dt>서명</dt>
+                                <dd class="mono"
+                                    th:text="${isRootCa} ? '자체 서명' : (${caSubject?.commonName()} ?: '(발급 CA)')">
+                                    (발급 CA)
+                                </dd>
+                                <th:block th:if="${ekus != null and !ekus.isEmpty()}">
+                                    <dt>Ext Key Usage</dt>
+                                    <dd class="mono" th:text="${#strings.listJoin(ekus.![value()], ', ')}">
+                                        serverAuth
+                                    </dd>
+                                </th:block>
+                                <th:block th:if="${sp != null}">
+                                    <dt>Basic Constr.</dt>
+                                    <dd class="mono"
+                                        th:text="${spIsCa} ? |CA:TRUE${sp.pathLenConstraint != null ? ', pathLen=' + sp.pathLenConstraint : ''}| : 'CA:FALSE'">
+                                        CA:FALSE
+                                    </dd>
+                                </th:block>
+                            </dl>
+                            <div class="hint">Subject 입력과 발급 CA 선택은 입력하는 즉시 Subject·Issuer DN에
+                                반영돼요. 프로파일·키를
+                                바꾸면 다시 로딩되며 갱신됩니다. 시리얼·지문은 발급 후에 정해집니다.
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-lg btn-block" id="issueSubmit" th:disabled="${sp == null or (!isRootCa and #lists.isEmpty(issuerList)) or (isNewKey ? newKeyAlgorithms.isEmpty() : #lists.isEmpty(keyOptions))}"
+                                type="submit">
+                            인증서 발급
+                        </button>
+                        <a class="btn btn-outline btn-md btn-block" th:href="@{/pki/certificates}">취소</a>
+                    </section>
+                </aside>
+            </div>
+
+            <!--/* 프로파일 변경 시 입력값 그대로 GET 재로딩. 엔터 제출이 이 버튼으로 가지 않도록 [인증서 발급] 뒤에 둔다 */-->
+            <button formmethod="get" formnovalidate hidden id="profileReload" tabindex="-1"
+                    th:formaction="@{/pki/certificates}"
+                    type="submit"></button>
+        </form>
+
+        <!--/* 미리보기 DN 즉시 갱신 (서버 호출 없음). 빈 칸은 프로파일 고정값(data-fixed) */-->
+        <script>
+            (function () {
+                var form = document.getElementById('issue-form');
+                if (!form) return;
+                var errors = document.getElementById('issue-errors');
+                if (errors) errors.focus();
+                form.addEventListener('submit', function (event) {
+                    if (event.submitter && event.submitter.id === 'profileReload') return;
+                    var button = document.getElementById('issueSubmit');
+                    button.disabled = true;
+                    button.textContent = '발급 중…';
+                    form.setAttribute('aria-busy', 'true');
+                });
+                var subjectOut = form.querySelector('[data-preview="subject"]');
+                var issuerOut = form.querySelector('[data-preview="issuer"]');
+                var ca = form.querySelector('select[name="issuerCertificateId"]');
+                var part = function (name) {
+                    var input = form.querySelector('[data-dn-part="' + name + '"]');
+                    var value = input ? input.value.trim() : '';
+                    return value || (input && input.dataset.fixed) || '';
+                };
+                var render = function () {
+                    var values = {
+                        DC: part('DC'),
+                        CN: part('CN'),
+                        OU: part('OU'),
+                        O: part('O'),
+                        C: part('C')
+                    };
+                    var subject = ['DC', 'CN', 'OU', 'O', 'C']
+                        .filter(function (k) {
+                            return values[k];
+                        })
+                        .map(function (k) {
+                            return k + '=' + values[k];
+                        })
+                        .join(', ');
+                    subjectOut.textContent = subject || '(CN 입력)';
+                    if (ca && ca.disabled) {
+                        issuerOut.textContent = subject || '(CN 입력)';
+                    } else if (ca) {
+                        var option = ca.options[ca.selectedIndex];
+                        issuerOut.textContent = (option && option.dataset.dn) || '(발급 CA 선택)';
+                    }
+                };
+                form.querySelectorAll('[data-dn-part]').forEach(function (input) {
+                    input.addEventListener('input', render);
+                });
+                if (ca) ca.addEventListener('change', render);
+            })();
+        </script>
+    </section>
+</div>
+</body>
+</html>

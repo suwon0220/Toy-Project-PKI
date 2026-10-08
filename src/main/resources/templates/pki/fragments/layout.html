@@ -1,49 +1,64 @@
 <!DOCTYPE html>
 <!--/*
   PKI 콘솔 공통 레이아웃.
-  사용: <html th:replace="~{pki/fragments/layout :: shell('인증서 발급', ~{::main}, 'issue')}">
-  activeMenu: issue | certificates | profiles | ocsp | kms
-  공통 Model(선택): flashSuccess, flashError (String), currentUser (String)
+  사용: <html th:replace="~{pki/fragments/layout :: shell('인증서 관리', ~{::main}, 'certificates')}">
+  activeMenu: certificates | profiles | kms | logs
+  공통 Model(선택): flashSuccess, flashError (String), currentUser, currentRole (String)
 */-->
-<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:fragment="shell(title, content, activeMenu)">
+<html lang="ko" th:fragment="shell(title, content, activeMenu)" xmlns:th="http://www.thymeleaf.org">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title th:text="|${title} · PKI Console|">PKI Console</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" th:href="@{/css/pki.css}">
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title th:text="|${title} · PKI Console|">PKI Console</title>
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap"
+          rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/pki.css}">
+    <script defer th:src="@{/js/pki.js}"></script>
 </head>
 <body>
 <div class="shell">
-  <aside class="sidebar">
-    <a class="brand" th:href="@{/pki/certificates}">
-      <span class="brand-name">PKI Console</span>
-      <span class="brand-sub">인증서 인프라</span>
-    </a>
-    <nav class="nav" aria-label="PKI 메뉴">
-      <a th:href="@{/pki/certificates/new}" th:attr="aria-current=${activeMenu == 'issue'} ? 'page'">인증서 발급</a>
-      <a th:href="@{/pki/certificates}" th:attr="aria-current=${activeMenu == 'certificates'} ? 'page'">인증서 상태 관리</a>
-      <a th:href="@{/pki/profiles}" th:attr="aria-current=${activeMenu == 'profiles'} ? 'page'">인증서 프로파일</a>
-      <a th:href="@{/pki/ocsp/logs}" th:attr="aria-current=${activeMenu == 'ocsp'} ? 'page'">OCSP 로그</a>
-      <a th:href="@{/pki/kms}" th:attr="aria-current=${activeMenu == 'kms'} ? 'page'">KMS 키</a>
-    </nav>
-    <div class="side-foot" th:text="${currentUser} ?: 'anonymous'">anonymous</div>
-  </aside>
+    <aside class="sidebar">
+        <a class="brand" th:href="@{/pki/certificates}">
+            <span class="brand-name">PKI Console</span>
+            <span class="brand-sub">인증서 인프라</span>
+        </a>
+        <nav aria-label="PKI 메뉴" class="nav">
+            <a th:attr="aria-current=${activeMenu == 'certificates'} ? 'page'" th:href="@{/pki/certificates}">인증서 관리</a>
+            <a th:attr="aria-current=${activeMenu == 'profiles'} ? 'page'" th:href="@{/pki/profiles}">인증서 프로파일</a>
+            <a th:attr="aria-current=${activeMenu == 'kms'} ? 'page'" th:href="@{/pki/kms}">키 관리</a>
+            <a th:attr="aria-current=${activeMenu == 'logs'} ? 'page'" th:href="@{/pki/logs}">전체 로그</a>
+        </nav>
+        <div class="side-foot">
+            <span th:text="${currentUser} ?: 'anonymous'">anonymous</span><br>
+            <span th:text="${currentRole} ?: 'ROLE_PKI_ADMIN'">ROLE_PKI_ADMIN</span>
+        </div>
+    </aside>
 
-  <div class="main">
-    <div th:if="${flashSuccess}" class="alert alert-ok" role="status">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
-      <div th:text="${flashSuccess}">처리했습니다.</div>
-    </div>
-    <div th:if="${flashError}" class="alert alert-err" role="alert">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-      <div th:text="${flashError}">처리하지 못했습니다.</div>
-    </div>
+    <div class="main"
+         th:with="okMessage=${flashSuccess}">
+        <div class="alert alert-ok" role="status" th:if="${okMessage}">
+            <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" stroke-linecap="round"
+                 stroke-linejoin="round"
+                 stroke-width="2" viewBox="0 0 24 24" width="18">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <div th:text="${okMessage}">처리했습니다.</div>
+        </div>
+        <div class="alert alert-err" role="alert" th:if="${flashError}">
+            <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" stroke-linecap="round"
+                 stroke-linejoin="round"
+                 stroke-width="2" viewBox="0 0 24 24" width="18">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" x2="12" y1="8" y2="12"></line>
+                <line x1="12" x2="12.01" y1="16" y2="16"></line>
+            </svg>
+            <div th:text="${flashError}">처리하지 못했습니다.</div>
+        </div>
 
-    <main th:replace="${content}"></main>
-  </div>
+        <main th:replace="${content}"></main>
+    </div>
 </div>
 </body>
 </html>

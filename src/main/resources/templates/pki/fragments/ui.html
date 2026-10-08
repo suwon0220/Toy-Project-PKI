@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<!--/* PKI 콘솔 공용 조각. 라벨은 messages.properties 의 enum.* 키, 없으면 enum 이름을 그대로 출력한다. */-->
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/* enum 라벨: ~{pki/fragments/ui :: label('CertStatus', ${c.status})} */-->
+<th:block th:fragment="label(type, value)"
+          th:text="${value == null} ? '—' : (${#messages.msgOrNull('enum.' + type + '.' + value)} ?: ${value})">VALID
+</th:block>
+
+<!--/* 전역 오류 배너 (th:object 안에서만 사용) */-->
+<div class="alert alert-err" role="alert" th:fragment="globalErrors" th:if="${#fields.hasGlobalErrors()}">
+    <svg aria-hidden="true" fill="none" height="18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+         stroke-width="2" viewBox="0 0 24 24" width="18">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" x2="12" y1="8" y2="12"></line>
+        <line x1="12" x2="12.01" y1="16" y2="16"></line>
+    </svg>
+    <ul>
+        <li th:each="e : ${#fields.globalErrors()}" th:text="${e}">오류</li>
+    </ul>
+</div>
+
+<!--/* 인증서 상태 배지: VALID | ON_HOLD | REVOKED | EXPIRED */-->
+<span class="badge"
+      th:classappend="${status == null} ? 'b-neutral' : (${(status.name() == 'VALID' or status.name() == 'ACTIVE')} ? 'b-ok' : (${(status.name() == 'ON_HOLD' or status.name() == 'SUSPENDED')} ? 'b-warn' : (${status.name() == 'REVOKED'} ? 'b-danger' : 'b-neutral')))"
+      th:fragment="certStatus(status)"
+      th:insert="~{pki/fragments/ui :: label('CertStatus', ${status})}">유효</span>
+
+<!--/* 프로파일 상태 배지: ACTIVE | DRAFT | RETIRED */-->
+<span class="badge"
+      th:classappend="${status == null} ? 'b-neutral' : (${status.name() == 'ACTIVE'} ? 'b-ok' : (${status.name() == 'DRAFT'} ? 'b-warn' : 'b-neutral'))"
+      th:fragment="profileStatus(status)"
+      th:text="${status}">ACTIVE</span>
+
+<!--/* 감사로그 결과 배지: SUCCESS | FAILURE */-->
+<span class="badge"
+      th:classappend="${result == null} ? 'b-neutral' : (${result.name() == 'SUCCESS'} ? 'b-ok' : 'b-danger')"
+      th:fragment="auditResult(result)"
+      th:insert="~{pki/fragments/ui :: label('AuditResult', ${result})}">성공</span>
+
+<!--/* 감사로그 분류 칩: CERTIFICATE | PROFILE | KMS | OCSP | CRL */-->
+<span class="cat" th:classappend="${category != null} ? |cat-${category.name()}|"
+      th:fragment="auditCategory(category)"
+      th:insert="~{pki/fragments/ui :: label('AuditCategory', ${category})}">인증서</span>
+
+<!--/*
+  인증서 목록 정렬 헤더. 같은 필드를 다시 누르면 방향 반전, 다른 필드는 asc부터.
+  정렬이 바뀌면 page는 0 (파라미터 생략), 필터는 유지.
+  Model: sortField, sortDir, filter
+*/-->
+<span th:attr="aria-sort=${on} ? (${sortDir == 'desc'} ? 'descending' : 'ascending') : 'none'"
+      th:fragment="certSortHead(field, text)"
+      th:with="on=${sortField == field}, nextDir=${sortField == field and sortDir == 'asc'} ? 'desc' : 'asc'">
+    <a class="sort" th:classappend="${on} ? 'is-on'"
+       th:href="@{/pki/certificates(sort=${field + ',' + nextDir}, q=${filter.q}, status=${filter.status}, profileName=${filter.profileName})}">
+        <span th:text="${text}">주체 CN</span>
+        <span aria-hidden="true" class="arrow" th:text="${on} ? (${sortDir == 'desc'} ? '▼' : '▲') : '↕'">↕</span>
+    </a>
+</span>
+
+<!--/*
+  전체 로그 정렬 헤더. 규칙은 certSortHead 와 같다. 필터 · 분류 탭 값은 유지.
+  Model: sortField, sortDir, filter
+*/-->
+<span th:attr="aria-sort=${on} ? (${sortDir == 'desc'} ? 'descending' : 'ascending') : 'none'"
+      th:fragment="logSortHead(field, text)"
+      th:with="on=${sortField == field}, nextDir=${sortField == field and sortDir == 'asc'} ? 'desc' : 'asc'">
+    <a class="sort" th:classappend="${on} ? 'is-on'"
+       th:href="@{/pki/logs(sort=${field + ',' + nextDir}, category=${filter.category}, from=${filter.from}, to=${filter.to}, q=${filter.q}, result=${filter.result}, includeProbe=${filter.includeProbe})}">
+        <span th:text="${text}">시각</span>
+        <span aria-hidden="true" class="arrow" th:text="${on} ? (${sortDir == 'desc'} ? '▼' : '▲') : '↕'">↕</span>
+    </a>
+</span>
+
+</body>
+</html>

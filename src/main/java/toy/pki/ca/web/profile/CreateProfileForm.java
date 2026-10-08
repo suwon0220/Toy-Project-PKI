@@ -1,0 +1,72 @@
+package toy.pki.ca.web.profile;
+
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
+import toy.pki.ca.domain.profile.CertificateProfile;
+import toy.pki.ca.domain.profile.CertificateType;
+import toy.pki.ca.domain.profile.ExtendedKeyUsageOid;
+import toy.pki.ca.domain.profile.KeyUsage;
+import toy.pki.ca.domain.profile.SanType;
+import toy.pki.ca.domain.profile.SubjectKeySpec;
+
+@Data
+@AllArgsConstructor
+public class CreateProfileForm {
+
+    @NotBlank private String alias;
+    private String description;
+
+    @NotNull
+    @Min(1)
+    private Integer defaultValidityDays;
+
+    @NotNull
+    @Min(1)
+    private Integer maxValidityDays;
+
+    @NotEmpty private Set<SubjectKeySpec> keyAlgorithms;
+    @NotEmpty private Set<CertificateSignatureAlgorithm> allowedSignatures;
+
+    private boolean sanRequired;
+    private Set<SanType> allowedSanTypes;
+
+    private DnPolicyForm dnPolicy;
+
+    private CertificateType certificateType;
+    private Integer pathLenConstraint;
+
+    @NotEmpty private Set<KeyUsage> keyUsages;
+
+    private Set<String> extendedKeyUsageOids;
+
+    public static CreateProfileForm from(CertificateProfile profile) {
+        return new CreateProfileForm(
+            profile.getAlias(),
+            profile.getDescription(),
+            profile.getDefaultValidityDays(),
+            profile.getMaxValidityDays(),
+            Arrays.stream(SubjectKeySpec.values())
+                  .filter(subjectKeySpec -> profile.getSubjectKeyPolicy().allows(subjectKeySpec))
+                  .collect(Collectors.toCollection(LinkedHashSet::new)),
+            new LinkedHashSet<>(profile.getAllowedSignatures()),
+            profile.getSanPolicy().required(),
+            new LinkedHashSet<>(profile.getSanPolicy().allowedTypes()),
+            DnPolicyForm.from(profile.getDnPolicy()),
+            profile.getCertificateType(),
+            profile.getPathLenConstraint(),
+            new LinkedHashSet<>(profile.getKeyUsages()),
+            profile.getExtendedKeyUsages().stream()
+                   .map(ExtendedKeyUsageOid::value)
+                   .collect(Collectors.toCollection(LinkedHashSet::new))
+        );
+    }
+}
