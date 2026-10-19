@@ -1,5 +1,6 @@
 package toy.pki.ca.domain.profile;
 
+import jakarta.persistence.Embeddable;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import java.util.Collections;
@@ -10,6 +11,7 @@ import java.util.regex.Pattern;
 /**
  * ExtendedKeyUsageOid
  */
+@Embeddable
 public record ExtendedKeyUsageOid(
     @NotBlank String value) {
 

@@ -1,6 +1,7 @@
 package toy.pki.ca.web.profile;
 
 import jakarta.validation.Valid;
+import jakarta.validation.ConstraintViolationException;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,7 +32,6 @@ import toy.pki.ca.domain.profile.ExtendedKeyUsageOid;
 import toy.pki.ca.domain.profile.KeyUsage;
 import toy.pki.ca.domain.profile.ProfileId;
 import toy.pki.ca.domain.profile.SanType;
-import toy.pki.ca.domain.profile.SubjectKeySpec;
 import toy.pki.kms.web.KeyAlgorithmPreset;
 
 @Slf4j
@@ -142,7 +142,14 @@ public class CertificateProfileController {
             createProfileForm.getKeyUsages(),
             extendedKeyUsages);
 
-        ProfileId id = certificateProfileService.createDraft(request);
+        ProfileId id;
+        try {
+            id = certificateProfileService.createDraft(request);
+        } catch (ConstraintViolationException failure) {
+            rejectProfileViolations(failure, bindingResult);
+            model.addAttribute("creating", true);
+            return "pki/profiles/index";
+        }
         redirectAttributes.addAttribute("profileId", id.value());
         return "redirect:/pki/profiles";
     }
@@ -150,13 +157,13 @@ public class CertificateProfileController {
     @PostMapping("/{profileId}/update")
     public String updateDraft(
         @PathVariable String profileId,
-        @Valid @ModelAttribute UpdateProfileForm updateProfileForm,
+        @Valid @ModelAttribute("createProfileForm") CreateProfileForm updateProfileForm,
         BindingResult bindingResult,
         Model model,
         RedirectAttributes redirectAttributes) {
 
         if (bindingResult.hasErrors()) {
-            model.addAttribute("creating", true);
+            model.addAttribute("selectedProfile", certificateProfileService.findById(profileId));
             return "pki/profiles/index";
         }
 
@@ -188,7 +195,13 @@ public class CertificateProfileController {
             updateProfileForm.getKeyUsages(),
             extendedKeyUsages);
 
-        certificateProfileService.updateDraft(request);
+        try {
+            certificateProfileService.updateDraft(request);
+        } catch (ConstraintViolationException failure) {
+            rejectProfileViolations(failure, bindingResult);
+            model.addAttribute("selectedProfile", certificateProfileService.findById(profileId));
+            return "pki/profiles/index";
+        }
         redirectAttributes.addAttribute("profileId", profileId);
         return "redirect:/pki/profiles";
     }
@@ -209,5 +222,25 @@ public class CertificateProfileController {
     public String delete(@PathVariable String profileId) {
         certificateProfileService.delete(profileId);
         return "redirect:/pki/profiles";
+    }
+
+    private void rejectProfileViolations(ConstraintViolationException failure, BindingResult errors) {
+        failure.getConstraintViolations().forEach(violation -> {
+            String property = violation.getPropertyPath().toString();
+            String field = property.startsWith("extendedKeyUsages") ? "extendedKeyUsageOids" : switch (property) {
+                case "validCaKeyUsage", "validKeyAgreementUsage", "keyUsages" -> "keyUsages";
+                case "validValidityRange", "defaultValidityDays" -> "defaultValidityDays";
+                case "maxValidityDays" -> "maxValidityDays";
+                case "validPathLenConstraint" -> "pathLenConstraint";
+                case "validExtendedKeyUsages" -> "extendedKeyUsageOids";
+                case "certificateType", "alias" -> property;
+                default -> null;
+            };
+            if (field == null) {
+                errors.reject("profile.invalid", violation.getMessage());
+            } else {
+                errors.rejectValue(field, "profile.invalid", violation.getMessage());
+            }
+        });
     }
 }

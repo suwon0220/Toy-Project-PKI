@@ -11,9 +11,8 @@ public interface CertificateProfileRepository {
     void save(CertificateProfile profile);
 
     Optional<CertificateProfile> findById(ProfileId profileId);
-    List<CertificateProfile> findByCriteria(ProfileSearchCriteria criteria);
 
-    List<CertificateProfile> findAll();
+    List<CertificateProfile> findAll(ProfileSearchCriteria criteria);
 
     void delete(ProfileId profileId);
 }

@@ -38,6 +38,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import toy.pki.ca.adapter.certificate.bouncycastle.BouncyCastleCertificateIssuer;
 import toy.pki.ca.adapter.certificate.bouncycastle.BouncyCastleCertificateStatusService;
 import toy.pki.ca.adapter.persistence.memory.InMemoryMyCertificateRepository;
+import toy.pki.ca.application.certificate.model.CertificateSearchCriteria;
 import toy.pki.ca.application.certificate.model.CertificateValidationResult.Reason;
 import toy.pki.ca.application.certificate.model.IssueCertificateCommand;
 import toy.pki.ca.application.profile.service.CertificateProfileService;
@@ -207,7 +208,7 @@ class CertificateValidationServiceTest {
         assertThatThrownBy(() -> service.issue(request)).isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Intermediate 1");
         verifyNoInteractions(issuer);
-        assertThat(repository.findAll()).hasSize(4);
+        assertThat(repository.findAll(new CertificateSearchCriteria(null))).hasSize(4);
     }
 
     @Test

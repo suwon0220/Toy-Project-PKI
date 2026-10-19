@@ -44,6 +44,7 @@ import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
+import toy.pki.ca.application.certificate.model.CertificateSearchCriteria;
 import toy.pki.ca.application.certificate.model.OcspCheckResult;
 import toy.pki.ca.application.certificate.port.MyCertificateRepository;
 import toy.pki.ca.application.certificate.service.CertificateValidationService;
@@ -318,7 +319,7 @@ public class BouncyCastleCertificateStatusService {
     }
 
     private List<MyCertificate> issuedBy(MyCertificate issuer) {
-        return repository.findAll()
+        return repository.findAll(new CertificateSearchCriteria(null))
                          .stream()
                          .filter(item -> issuer.getId().equals(item.getIssuerCertificateId()))
                          .toList();

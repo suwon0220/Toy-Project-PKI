@@ -73,12 +73,8 @@ public class MyCertificateService {
                                     .orElseThrow(() -> new IllegalArgumentException("Certificate not found: " + certificateId));
     }
 
-    public List<MyCertificate> findAll() {
-        return certificateRepository.findAll();
-    }
-
-    public List<MyCertificate> search(CertificateSearchCriteria criteria) {
-        return certificateRepository.findByCriteria(criteria);
+    public List<MyCertificate> findAll(CertificateSearchCriteria criteria) {
+        return certificateRepository.findAll(criteria);
     }
 
     public void expire(String certificateId) {

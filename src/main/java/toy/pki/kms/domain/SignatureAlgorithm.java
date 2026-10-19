@@ -7,5 +7,4 @@ public enum SignatureAlgorithm {
     ECDSA,
     Ed448,
     Ed25519
-
 }

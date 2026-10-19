@@ -41,7 +41,7 @@ public class CreateProfileForm {
 
     private DnPolicyForm dnPolicy;
 
-    private CertificateType certificateType;
+    @NotNull private CertificateType certificateType;
     private Integer pathLenConstraint;
 
     @NotEmpty private Set<KeyUsage> keyUsages;

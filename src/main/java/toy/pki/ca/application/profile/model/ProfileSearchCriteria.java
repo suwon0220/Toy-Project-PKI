@@ -15,7 +15,8 @@ public record ProfileSearchCriteria(
     }
 
     public Predicate<CertificateProfile> toPredicate() {
-        throw new UnsupportedOperationException("Unimplemented method 'toPredicate'");
+        return profile -> keyword == null
+            || (profile.getAlias() != null && profile.getAlias().toLowerCase(Locale.ROOT).contains(keyword));
     }
 
 }

@@ -1,9 +1,11 @@
 package toy.pki.ca.domain.policy;
 
+import jakarta.persistence.Embeddable;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.Set;
 import toy.pki.ca.domain.profile.SubjectKeySpec;
 
+@Embeddable
 public record SubjectKeyPolicy(
     @NotEmpty Set<SubjectKeySpec> allowedKeys) {
 

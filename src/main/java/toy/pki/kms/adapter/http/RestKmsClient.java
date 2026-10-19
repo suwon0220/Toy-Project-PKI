@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -52,16 +53,19 @@ public class RestKmsClient {
         return managedKey;
     }
 
-    public byte[] sign(KeyId keyId, SignatureAlgorithm algorithm, HashAlgorithm digest, byte[] data) {
-        digest = digest(algorithm, digest);
+    public byte[] sign(@NonNull KeyId keyId, SignatureAlgorithm algorithm, HashAlgorithm digest, byte[] data) {
         log.debug("Requesting KMS signature: keyId={}, algorithm={}, digest={}, dataLength={}",
             keyId.value(), algorithm, digest, data.length);
+        SignRequest signRequest = new SignRequest(keyId, algorithm, digest, data);
+
         SignResponse response = client.post()
                                       .uri(API + "/sign")
                                       .contentType(MediaType.APPLICATION_JSON)
-                                      .body(new SignRequest(keyId, algorithm, digest, data))
+                                      .body(signRequest)
                                       .retrieve()
                                       .body(SignResponse.class);
+
+        log.info( "KMS signing completed: keyId={}, algorithm={}, digest={}, dataLength={}", keyId.value(), algorithm, digest, data.length);
 
         required(response);
         byte[] signature = required(response.signature());
@@ -75,7 +79,7 @@ public class RestKmsClient {
         HashAlgorithm digest,
         byte[] data,
         byte[] signature) {
-        digest = digest(algorithm, digest);
+        digest = toHashAlgorithm(algorithm, digest);
         log.debug("Requesting KMS verification: keyId={}, algorithm={}, digest={}",
             keyId.value(), algorithm, digest);
         VerifyResponse response = client.post()
@@ -102,7 +106,7 @@ public class RestKmsClient {
                                            .body(PublicKeyResponse.class);
 
         required(response);
-        if (!keyId.equals(response.keyId())) {
+        if (!keyId.equals(required(response.managedKeyId()))) {
             throw new RestClientException("KMS returned a different key ID");
         }
         byte[] publicKey = required(response.publicKey());
@@ -127,7 +131,7 @@ public class RestKmsClient {
         return keyId;
     }
 
-    private HashAlgorithm digest(SignatureAlgorithm algorithm, HashAlgorithm hashAlgorithm) {
+    private HashAlgorithm toHashAlgorithm(SignatureAlgorithm algorithm, HashAlgorithm hashAlgorithm) {
         return switch (algorithm) {
             case Ed25519, Ed448 -> null;
             case RSA_PKCS1_V1_5, ECDSA -> {
@@ -199,7 +203,7 @@ public class RestKmsClient {
     }
 
     public record PublicKeyResponse(
-        KeyId keyId,
+        KeyId managedKeyId,
         byte[] publicKey) {
     }
 

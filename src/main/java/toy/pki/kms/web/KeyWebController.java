@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BindingResult;
@@ -30,6 +31,7 @@ import toy.pki.kms.domain.KeyId;
 import toy.pki.kms.domain.ManagedKey;
 import toy.pki.kms.domain.SignatureAlgorithm;
 
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 @RequestMapping("/pki/kms")
@@ -122,6 +124,8 @@ public class KeyWebController {
                 e);
         }
 
+        log.info("Signing data with keyId: {}, signatureAlgorithm: {}, hashAlgorithm: {}, encoding: {}",
+            keyId.value(), signatureAlgorithm, hashAlgorithm, encoding);
         byte[] signature = keyManagementService.sign(keyId, signatureAlgorithm, hashAlgorithm, bytes);
 
         HashAlgorithm dataHashAlgorithm = switch (signatureAlgorithm) {

@@ -4,7 +4,9 @@ import jakarta.annotation.PostConstruct;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import toy.pki.ca.application.profile.model.ProfileSearchCriteria;
 import toy.pki.ca.application.profile.port.CertificateProfileRepository;
 import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
 import toy.pki.ca.domain.policy.DnAttributePolicy;
@@ -19,6 +21,7 @@ import toy.pki.ca.domain.profile.ProfileStatus;
 import toy.pki.ca.domain.profile.SubjectKeySpec;
 
 @Component
+@Profile("!test")
 @RequiredArgsConstructor
 public class ProfileDataInitializer {
 
@@ -27,7 +30,7 @@ public class ProfileDataInitializer {
     @PostConstruct
     public void init() {
         // V2G Root CA Profile
-        certificateProfileRepository.save(
+        saveIfMissing(
             new CertificateProfile(
                 new ProfileId(UUID.randomUUID().toString()),
                 "V2G Root CA",
@@ -51,7 +54,7 @@ public class ProfileDataInitializer {
                 Set.of()));
 
         // CPO Sub CA 1 Profile
-        certificateProfileRepository.save(
+        saveIfMissing(
             new CertificateProfile(
                 new ProfileId(UUID.randomUUID().toString()),
                 "CPO Sub CA 1",
@@ -75,7 +78,7 @@ public class ProfileDataInitializer {
                 Set.of()));
 
         // CPO Sub CA 2 Profile
-        certificateProfileRepository.save(
+        saveIfMissing(
             new CertificateProfile(
                 new ProfileId(UUID.randomUUID().toString()),
                 "CPO Sub CA 2",
@@ -99,7 +102,7 @@ public class ProfileDataInitializer {
                 Set.of()));
 
         // SECC Cert Profile
-        certificateProfileRepository.save(
+        saveIfMissing(
             new CertificateProfile(
                 new ProfileId(UUID.randomUUID().toString()),
                 "SECC Cert",
@@ -121,5 +124,13 @@ public class ProfileDataInitializer {
                 null,
                 Set.of(KeyUsage.DATA_ENCIPHERMENT),
                 Set.of()));
+    }
+
+    private void saveIfMissing(CertificateProfile profile) {
+        boolean exists = certificateProfileRepository.findAll(new ProfileSearchCriteria(profile.getAlias()))
+            .stream().anyMatch(existing -> profile.getAlias().equalsIgnoreCase(existing.getAlias()));
+        if (!exists) {
+            certificateProfileRepository.save(profile);
+        }
     }
 }

@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import toy.pki.ca.application.certificate.model.CertificateSearchCriteria;
 import toy.pki.ca.application.certificate.service.MyCertificateService;
 import toy.pki.ca.application.profile.service.CertificateProfileService;
 import toy.pki.ca.domain.certificate.CertificateId;
@@ -199,7 +200,7 @@ public class CertificateController {
 
     private void list(Model model, CertificateFilter filter, int page, int size, String sort) {
         Map<String, String> names = profileNames();
-        List<CertificateView> all = certificateService.findAll().stream()
+        List<CertificateView> all = certificateService.findAll(new CertificateSearchCriteria(null)).stream()
                                                       .map(certificate -> view(certificate, names)).toList();
         String[] ordering = sort.split(",", -1);
         String field = ordering[0];
@@ -252,7 +253,7 @@ public class CertificateController {
         model.addAttribute("displayTimeZone", zone.getId());
         CertificateProfile selected = selectedProfile(form);
         Map<String, String> names = profileNames();
-        model.addAttribute("issuerCerts", certificateService.findAll()
+        model.addAttribute("issuerCerts", certificateService.findAll(new CertificateSearchCriteria(null))
                                                             .stream()
                                                             .map(certificate -> view(certificate, names))
                                                             .filter(CertificateView::isIssuerEligible)

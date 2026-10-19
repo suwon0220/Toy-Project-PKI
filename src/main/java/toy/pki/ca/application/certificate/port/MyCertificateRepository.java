@@ -10,9 +10,8 @@ public interface MyCertificateRepository {
     void save(MyCertificate certificate);
 
     Optional<MyCertificate> findById(CertificateId certificateId);
-    List<MyCertificate> findByCriteria(CertificateSearchCriteria criteria);
 
-    List<MyCertificate> findAll();
+    List<MyCertificate> findAll(CertificateSearchCriteria criteria);
 
     void delete(CertificateId certificateId);
 }

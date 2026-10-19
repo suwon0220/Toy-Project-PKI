@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import toy.pki.kms.adapter.http.RestKmsClient;
@@ -15,6 +16,7 @@ import toy.pki.kms.domain.ManagedKey;
 import toy.pki.kms.domain.SignatureAlgorithm;
 import toy.pki.kms.web.KeyAlgorithmPreset;
 
+@Slf4j
 @Validated
 @Service
 @RequiredArgsConstructor
@@ -43,6 +45,8 @@ public class KeyManagementService {
         @NotNull SignatureAlgorithm algorithm,
         HashAlgorithm digest,
         @NotNull byte[] data) {
+        log.info("Signing data with keyId: {}, algorithm: {}, digest: {}, data length: {}",
+            keyId.value(), algorithm, digest, data.length);
         return kmsClient.sign(keyId, algorithm, digest, data);
     }
 

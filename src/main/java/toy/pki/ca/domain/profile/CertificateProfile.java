@@ -1,5 +1,6 @@
 package toy.pki.ca.domain.profile;
 
+import jakarta.persistence.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
@@ -9,62 +10,109 @@ import jakarta.validation.constraints.Size;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+
+import lombok.*;
 import toy.pki.ca.domain.certificate.CertificateSignatureAlgorithm;
 import toy.pki.ca.domain.policy.DnPolicy;
 import toy.pki.ca.domain.policy.SanPolicy;
 import toy.pki.ca.domain.policy.SubjectKeyPolicy;
 
-@Data
+@Entity
+@Getter @Setter
+@NoArgsConstructor
 @AllArgsConstructor
 public class CertificateProfile {
     // Unique identifier for the certificate profile
-    @NotNull
-    @Valid
-    private final ProfileId id;
+    @EmbeddedId
+    @AttributeOverride(
+            name = "value",
+            column = @Column(name = "profile_id")
+    )
+    private ProfileId id;
+
     @Size(min = 1, message = "alias는 null이 아닐 경우 비어있을 수 없습니다")
     private String alias;
+
     private String description;
+
     // Status of the certificate profile
-    @NotNull private ProfileStatus status;
+    private ProfileStatus status;
+
     // Validity period in days
     @Min(1) private int defaultValidityDays;
     @Min(1) private int maxValidityDays;
+
     // Subject Key Policy
-    @NotNull
     @Valid
     private SubjectKeyPolicy subjectKeyPolicy;
     private Set<CertificateSignatureAlgorithm> allowedSignatures;
-    // SAN Policy
-    @NotNull private SanPolicy sanPolicy;
-    // Subject Policy
-    private DnPolicy dnPolicy;
-    // Basic Constraints
-    private CertificateType certificateType;
-    private Integer pathLenConstraint;
-    // Key Usage
-    @NotEmpty private Set<@NotNull KeyUsage> keyUsages;
-    @NotNull private Set<@NotNull @Valid ExtendedKeyUsageOid> extendedKeyUsages;
 
-    public CertificateProfile(
-        ProfileId id,
-        String alias,
-        String description,
-        int defaultValidityDays,
-        int maxValidityDays,
-        SubjectKeyPolicy subjectKeyPolicy,
-        Set<CertificateSignatureAlgorithm> allowedSignatures,
-        SanPolicy sanPolicy,
-        DnPolicy dnPolicy,
-        CertificateType certificateType,
-        Integer pathLenConstraint,
-        Set<KeyUsage> keyUsages,
-        Set<ExtendedKeyUsageOid> extendedKeyUsages) {
-        this(id, alias, description, ProfileStatus.DRAFT, defaultValidityDays, maxValidityDays,
-            subjectKeyPolicy, allowedSignatures, sanPolicy, dnPolicy, certificateType, pathLenConstraint,
-            keyUsages, extendedKeyUsages);
-    }
+    // SAN Policy
+    @Embedded
+    @AttributeOverride(
+            name = "required",
+            column = @Column(name = "san_required")
+    )
+    private SanPolicy sanPolicy;
+
+    // Subject Policy
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(
+                    name = "domainComponent.required",
+                    column = @Column(name = "dc_required")),
+            @AttributeOverride(
+                    name = "domainComponent.fixedValue",
+                    column = @Column(name = "dc_fixed_value")),
+
+            @AttributeOverride(
+                    name = "commonName.required",
+                    column = @Column(name = "cn_required")),
+            @AttributeOverride(
+                    name = "commonName.fixedValue",
+                    column = @Column(name = "cn_fixed_value")),
+
+            @AttributeOverride(
+                    name = "organizationUnit.required",
+                    column = @Column(name = "ou_required")),
+            @AttributeOverride(
+                    name = "organizationUnit.fixedValue",
+                    column = @Column(name = "ou_fixed_value")),
+
+            @AttributeOverride(
+                    name = "organization.required",
+                    column = @Column(name = "o_required")),
+            @AttributeOverride(
+                    name = "organization.fixedValue",
+                    column = @Column(name = "o_fixed_value")),
+
+            @AttributeOverride(
+                    name = "country.required",
+                    column = @Column(name = "c_required")),
+            @AttributeOverride(
+                    name = "country.fixedValue",
+                    column = @Column(name = "c_fixed_value"))
+    })
+    private DnPolicy dnPolicy;
+
+    // Basic Constraints
+    @NotNull private CertificateType certificateType;
+    private Integer pathLenConstraint;
+
+    // Key Usage
+    @NotEmpty private Set<KeyUsage> keyUsages;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "certificate_profile_eku",
+            joinColumns = @JoinColumn(name = "profile_id")
+    )
+    @AttributeOverride(
+            name = "value",
+            column = @Column(name = "oid", nullable = false)
+    )
+    private Set<@Valid ExtendedKeyUsageOid> extendedKeyUsages;
+
 
     @AssertTrue(message = "defaultValidityDays는 maxValidityDays보다 작거나 같아야 합니다")
     public boolean isValidValidityRange() {
@@ -114,6 +162,7 @@ public class CertificateProfile {
             new ProfileId(UUID.randomUUID().toString()), // 새로운 ID 생성
             this.alias + " (복제)", // 복제된 프로파일의 alias를 변경
             this.description,
+            ProfileStatus.DRAFT, // 복제된 프로파일은 기본적으로 DRAFT 상태로 설정
             this.defaultValidityDays,
             this.maxValidityDays,
             this.subjectKeyPolicy,

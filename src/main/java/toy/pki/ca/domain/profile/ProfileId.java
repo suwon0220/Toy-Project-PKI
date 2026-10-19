@@ -1,8 +1,10 @@
 package toy.pki.ca.domain.profile;
 
-import jakarta.validation.constraints.NotBlank;
+import jakarta.persistence.Embeddable;
+import jakarta.validation.constraints.NotEmpty;
 
+@Embeddable
 public record ProfileId(
-    @NotBlank String value) {
+    @NotEmpty String value) {
 
 }

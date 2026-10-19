@@ -3,7 +3,11 @@ package toy.pki.ca.application.profile.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.util.Set;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -25,10 +29,42 @@ import toy.pki.ca.domain.profile.SubjectKeySpec;
 
 class CertificateProfileServiceTest {
 
-    private final CertificateProfileService service = new CertificateProfileService(new InMemoryCertificateProfileRepository());
+    private static final ValidatorFactory validators = Validation.buildDefaultValidatorFactory();
+    private final CertificateProfileService service = new CertificateProfileService(
+        new InMemoryCertificateProfileRepository(), validators.getValidator());
     private final SubjectKeyPolicy keyPolicy = new SubjectKeyPolicy(Set.of(SubjectKeySpec.EC_P256));
     private final DnPolicy dnPolicy = new DnPolicy(new DnAttributePolicy("V2G"), new DnAttributePolicy(true),
         new DnAttributePolicy(false), new DnAttributePolicy("Example"), new DnAttributePolicy("KR"));
+
+    @AfterAll
+    static void closeValidator() {
+        validators.close();
+    }
+
+    @Test
+    void rejectsEndEntityCertificateSigningUsageBeforeSaving() {
+        var command = new CreateProfileCommand("Invalid leaf", null, 30, 365, keyPolicy,
+            Set.of(CertificateSignatureAlgorithm.ECDSA_WITH_SHA256), new SanPolicy(false, Set.of()), dnPolicy,
+            CertificateType.END_ENTITY, null, Set.of(KeyUsage.KEY_CERT_SIGN), Set.of());
+
+        assertThatThrownBy(() -> service.createDraft(command)).isInstanceOf(ConstraintViolationException.class)
+            .hasMessageContaining("CA가 아닌 프로파일에는 KEY_CERT_SIGN을 설정할 수 없습니다");
+        assertThat(service.findAll()).isEmpty();
+    }
+
+    @Test
+    void rejectsInvalidUpdatesWithoutChangingTheOriginalProfile() {
+        ProfileId id = create();
+        var command = new UpdateProfileCommand(id.value(), "Invalid leaf", null, 30, 365, keyPolicy,
+            new SanPolicy(false, Set.of()), dnPolicy, CertificateType.END_ENTITY, null,
+            Set.of(KeyUsage.KEY_CERT_SIGN), Set.of());
+
+        assertThatThrownBy(() -> service.updateDraft(command)).isInstanceOf(ConstraintViolationException.class);
+        var original = service.findById(id.value());
+        assertThat(original.getAlias()).isEqualTo("Root CA");
+        assertThat(original.getCertificateType()).isEqualTo(CertificateType.ROOT_CA);
+        assertThat(original.getPathLenConstraint()).isEqualTo(1);
+    }
 
     @Test
     void createsIndependentDraftsAndPreservesTheirPolicies() {
